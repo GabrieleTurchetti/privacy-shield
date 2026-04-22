@@ -1,4 +1,4 @@
-# PrivacyShield
+# Privacy Shield
 
 ## Description
 
@@ -6,15 +6,17 @@ The project consists of a device that can be attached to doors, windows, and oth
 
 In a multi-device network, a Leader is elected based on which node detects the highest noise intensity. The Leader identifies the sound type, if it matches a specific target profile, it coordinates the Followers to emit a synchronized anti-noise signal to mask the disturbance.
 
-The ecosystem includes a mobile application where it will be possible to set the type of noise to cover and view different statistics.
+The ecosystem includes a web application where it will be possible to set the type of noise to cover and view different statistics.
+
+Information about all the devices is sent to the cloud in order to generate statistics, manage the mesh, and monitor the state of the network such as battery levels, device reachability, and more.
 
 ## Hardware list:
-- ESP32-S3 Microcontroller (x2)
-- Breadboard (x2)
+- ESP32-S3 Microcontroller x2
+- Breadboard x2
 - Connectors
-- Battery (x4)
+- Battery x4
 - 18650 Battery Shield V3: https://amzn.eu/d/0iAi3bPU
-- I2S microphone (x2)
+- I2S microphone x2
 - Dayton Audio DAEX25: https://amzn.eu/d/07JOvqCm
 - MAX98357A: https://amzn.eu/d/0508CoDR
 - 22 AWG Speaker Wire: https://amzn.eu/d/0dPKMZ0M
@@ -25,8 +27,7 @@ The ecosystem includes a mobile application where it will be possible to set the
 
 The DNG-2300 generator has been created to protect against listening devices
 which cannot be discovered by common methods. The unit protects a room by
-inducting non-filterable noise onto surfaces. This noise, also known as 'white'
-noise, is transmitted onto surfaces with the help of the TRN-2000 transducers
+inducting non-filterable noise onto surfaces. This noise is transmitted onto surfaces with the help of the TRN-2000 transducers
 and OMS-2000 speakers in the unit. 
 
 <img src="assets/DNG_2300_illustration.png" />
