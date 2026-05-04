@@ -1,0 +1,13 @@
+﻿# Set the correct microcontroller target
+CONFIG_IDF_TARGET="esp32s3"
+
+# Maximize CPU frequency (240MHz) for heavy audio processing
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+
+# Enable external memory (8MB PSRAM)
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_FETCH_INSTRUCTIONS=y
+CONFIG_SPIRAM_RODATA=y
+
+# Set FreeRTOS tick rate to 1000Hz (1 tick = 1ms) to handle audio without delays
+CONFIG_FREERTOS_HZ=1000
