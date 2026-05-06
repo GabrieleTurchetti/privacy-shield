@@ -201,15 +201,6 @@ Where:
 - $t_{change}$ = time environmental change occurs
 - $t_{stable}$ = time masking stabilizes
 
-### Packet Loss Rate
-
-Applicable for distributed IoT systems.
-
-$$\Large
-\text{Packet Loss Rate}=
-\frac{Packets_{lost}}{Packets_{sent}}\times100
-$$
-
 ### CPU Utilization
 
 Measures edge device processing load.
