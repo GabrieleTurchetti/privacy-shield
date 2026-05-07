@@ -1,0 +1,13 @@
+# .github/labeler.yml
+documentation:
+  - changed-files:
+      - any-glob-match-pattern: 'docs/**'
+      - any-glob-match-pattern: '*.md'
+
+bug:
+  - changed-files:
+      - any-glob-match-pattern: 'src/**'
+
+feature:
+  - changed-files:
+      - any-glob-match-pattern: 'src/**'
