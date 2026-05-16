@@ -50,70 +50,58 @@ void audio_hal_mic_init(void) {
 }
 
 void audio_hal_mic_read_task(void *pvParameters) {
-    if (TEST_MIC) {
-        int32_t raw_samples[256];
-        int32_t dc_offset = 0;
-        bool is_calibrated = false;
-        long long calibration_sum = 0;
-        int calibration_samples_read = 0;
-        ESP_LOGI(TAG, "Stay completely quiet for 1 second. Calibrating...");
-
-        while(1) {
-            size_t bytes_read = 0;
-            
-            // Wait and read data from I2S DMA buffer
-            esp_err_t err = i2s_channel_read(rx_handle, raw_samples, sizeof(raw_samples), &bytes_read, portMAX_DELAY);
-            
-            if (err == ESP_OK && bytes_read > 0) {
-                int samples_read = bytes_read / 4; // 4 bytes per 32-bit sample
-
-                // DC offset calibration phase
-                if (!is_calibrated) {
-                    for (int i = 0; i < samples_read; i++) {
-                        calibration_sum += (raw_samples[i] >> 14);
-                        calibration_samples_read++;
-                    }
-                    
-                    // After 1 second of audio (16000 samples at 16kHz)
-                    if (calibration_samples_read >= 16000) {
-                        dc_offset = calibration_sum / calibration_samples_read;
-                        is_calibrated = true;
-                        ESP_LOGI(TAG, "Calibration complete! DC Offset: %ld", dc_offset);
-                        printf("START_DATA\n"); 
-                    }
-                } 
-                // Audio streaming phase
-                else {
-                    for (int i = 0; i < samples_read; i++) {
-                        // Apply offset correction and print to serial
-                        printf("%ld\n", (raw_samples[i] >> 14) - dc_offset);
-                    }
-                }
-            }
-        }
-    }
-    
-    // Read a chunk of data to send to the AI
-    int32_t raw_samples[512]; 
-    int16_t ai_buffer[512]; // AI usually prefers 16-bit audio to save RAM
+    int32_t raw_samples[512];
+    int16_t ai_buffer[512];
+    int32_t dc_offset = 0;
+    bool is_calibrated = false;
+    long long calibration_sum = 0;
+    int calibration_samples_read = 0;
+    ESP_LOGI(TAG, "Stay completely quiet for 1 second. Calibrating...");
 
     while(1) {
         size_t bytes_read = 0;
+        
+        // Wait and read data from I2S DMA buffer
         esp_err_t err = i2s_channel_read(rx_handle, raw_samples, sizeof(raw_samples), &bytes_read, portMAX_DELAY);
         
         if (err == ESP_OK && bytes_read > 0) {
-            int samples_read = bytes_read / 4; 
+            int samples_read = bytes_read / 4; // 4 bytes per 32-bit sample
 
-            // Convert 32-bit I2S data to 16-bit standard audio for the AI
-            for (int i = 0; i < samples_read; i++) {
-                // Shift down to 16-bit
-                ai_buffer[i] = (int16_t)(raw_samples[i] >> 14); 
+            // DC offset calibration phase
+            if (!is_calibrated) {
+                for (int i = 0; i < samples_read; i++) {
+                    calibration_sum += (raw_samples[i] >> 16);
+                    calibration_samples_read++;
+                }
+                
+                // After 1 second of audio (16000 samples at 16kHz)
+                if (calibration_samples_read >= 16000) {
+                    dc_offset = calibration_sum / calibration_samples_read;
+                    is_calibrated = true;
+                    ESP_LOGI(TAG, "Calibration complete! DC Offset: %ld", dc_offset);
+                }
+            } 
+            // Audio streaming phase
+            else {
+                if (TEST_MIC) {
+                    for (int i = 0; i < samples_read; i++) {
+                        // Apply offset correction and print to serial
+                        printf("%ld\n", (raw_samples[i] >> 16) - dc_offset);
+                    }
+                }
+                else {
+                    // Convert 32-bit I2S data to 16-bit standard audio for the AI
+                    for (int i = 0; i < samples_read; i++) {
+                        // Shift down to 16-bit
+                        ai_buffer[i] = (int16_t)(raw_samples[i] >> 16); 
+                    }
+
+                    // Send the chunk of audio to the DSP Engine
+                    /* if (audio_ai_queue != NULL) {
+                        xQueueSend(audio_ai_queue, &ai_buffer, 0);
+                    } */
+                }
             }
-
-            // Send the chunk of audio to the DSP Engine
-            /* if (audio_ai_queue != NULL) {
-                xQueueSend(audio_ai_queue, &ai_buffer, 0);
-            } */
         }
     }
 }
