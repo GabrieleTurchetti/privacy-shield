@@ -1,5 +1,9 @@
 {
   "C_Cpp.intelliSenseEngine": "default",
+  "C_Cpp.default.includePath": [
+    "${workspaceFolder}/main/include",
+    "${workspaceFolder}/components/**/include"
+  ],
   "clangd.arguments": [
     "--background-index",
     "--query-driver=**",

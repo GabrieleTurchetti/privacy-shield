@@ -1,46 +1,68 @@
 # Privacy Shield — Detailed Sprint Plan
 
+> **Last updated:** 2026-05-19  
+> **Repo:** [GabrieleTurchetti/privacy-shield](https://github.com/GabrieleTurchetti/privacy-shield)  
+> **Branch:** `sprint-1` (active development)
+
+---
+
+## Progress Overview
+
+| Sprint | Tasks | Completed | Remaining |
+|---|---|---|---|
+| Sprint 1 — Hardware Bring-up & Basic Mesh | 6 | 4 | 2 |
+| Sprint 2 — Audio Pipeline & Adaptive Masking | 6 | 0 | 6 |
+| Sprint 3 — Acoustic Echo Cancellation | 4 | 0 | 4 |
+| Sprint 4 — Hub Dashboard & Hardware Finalization | 6 | 0 | 6 |
+
+---
+
 ## Sprint 1 — Hardware Bring-up & Basic Mesh
 
 **Goal:** Have two devices powered on, capturing audio, playing audio, and talking to each other over ESP-NOW.
 
-### Task 1.1 — Development Environment
-- Install ESP-IDF v5.x with FreeRTOS
-- Configure for ESP32-S3 with 8MB PSRAM
-- Blink test on two boards
-- Set up project structure (components/, main/, sdkconfig)
+| Task | Issue | Status | Implemented By |
+|---|---|---|---|
+| 1.1 Development Environment | [#3](https://github.com/GabrieleTurchetti/privacy-shield/issues/3) | ✅ Done | ESP-IDF v5.5.4, ESP32-S3, 8MB PSRAM, 240MHz, FreeRTOS 1000Hz |
+| 1.2 I2S Microphone Driver | [#4](https://github.com/GabrieleTurchetti/privacy-shield/issues/4) | ✅ Done | `components/audio_hal/i2s_mic.c` — 16kHz, 32-bit I2S, DC calibration |
+| 1.3 Amplifier + Transducer Driver | [#5](https://github.com/GabrieleTurchetti/privacy-shield/issues/5) | ⬜ Pending | — |
+| 1.4 ESP-NOW Basic Communication | [#6](https://github.com/GabrieleTurchetti/privacy-shield/issues/6) | ✅ Done | `components/mesh_core/esp_now_link.c` — init, broadcast, send/recv callbacks |
+| 1.5 Node Discovery | [#7](https://github.com/GabrieleTurchetti/privacy-shield/issues/7) | ✅ Done | `components/mesh_core/node_discovery.c` — neighbor table, HELLO, 30s timeout |
+| 1.6 Mechanical Isolation Test | [#8](https://github.com/GabrieleTurchetti/privacy-shield/issues/8) | ⬜ Pending | — |
 
-### Task 1.2 — I2S Microphone Driver
-- Wire I2S MEMS mic to ESP32-S3 (BCLK, LRCLK, DIN)
-- Configure I2S peripheral (16-bit, 16kHz)
-- Capture audio samples and dump over serial
-- Verify audio capture quality (no clipping, no hiss)
+### What was actually delivered (Sprint 1 so far)
 
-### Task 1.3 — Amplifier + Transducer Driver
-- Wire MAX98357A to ESP32-S3 (BCLK, LRCLK, DOUT)
-- Wire DAEX25 to MAX98357A output
-- Generate simple tones (1kHz sine) and play through transducer
-- Verify transducer vibrates audibly
-- Test on different surfaces (door, drywall, window)
+**Architecture:**
 
-### Task 1.4 — ESP-NOW Basic Communication
-- Set up ESP-NOW on both devices
-- Send simple broadcast packets (device ID, timestamp)
-- Receive and display packets on the other device
-- Test round-trip latency
+```
+Core 0                              Core 1
+─────────────────────────────────────────────────────
+WiFi task (ESP-NOW callbacks)
+  └─ recv/send event handling       Mic_Task (pri 5)
+                                       └─ blocks on I2S DMA (32ms/buffer)
+hello_task (pri 1, every 10s)            └─ DC offset calibration (1s)
+  └─ mesh_send_hello()                   └─ raw sample dump (debug)
+                                          └─ 16-bit queue → DSP (production)
+prune_task (pri 2, every 2s)
+  └─ mesh_discovery_prune()
+  └─ neighbor count logging
+```
 
-### Task 1.5 — Node Discovery
-- Devices broadcast HELLO with their ID on boot
-- Each device maintains a list of known neighbors
-- Handle device leaving the mesh (timeout after ~30s of silence)
+**Beyond the task checklist:**
+- Kconfig debug/production toggle (`idf.py menuconfig` → Privacy Shield Configuration)
+- Centralized pin definitions in `main/include/global_config.h`
+- Packed binary protocol: HELLO, STATUS, COMMAND, ACK packets
+- Multi-core task architecture with separate cores for audio and mesh
+- DC offset calibration (1-second auto-calibrate on boot)
+- ESP-NOW v5.5.4 unified callback API
+- `docs/ESP-NOW_Mesh_Core.md` — 300-line implementation guide
+- Baud rate auto-configuration (2M baud only in debug mode)
 
-### Task 1.6 — Mechanical Isolation Test
-- Mount transducer on a surface
-- Place mic in different positions relative to the transducer
-- Test foam/silicone decoupling between mic and enclosure
-- Document which configuration gives the least vibration pick-up
+**Known issues:**
+- `prune_task` stack must be ≥4096 bytes (2048 caused stack overflow on neighbor timeout)
+- `hello_task` docstring says "5s" but code runs at 10s (cosmetic)
 
-**Deliverable:** Two devices communicate over ESP-NOW, capture and play audio independently.
+**Deliverable status:** Two devices communicate over ESP-NOW, capture audio independently. ⬜ Amp/transducer still needed.
 
 ---
 
@@ -48,9 +70,18 @@
 
 **Goal:** Each device detects speech and emits adaptive Pink/Brown noise masking independently.
 
+| Task | Issue | Status |
+|---|---|---|
+| 2.1 Audio Capture Buffer Pipeline | [#9](https://github.com/GabrieleTurchetti/privacy-shield/issues/9) | ⬜ Pending |
+| 2.2 Voice Activity Detection (VAD) | [#10](https://github.com/GabrieleTurchetti/privacy-shield/issues/10) | ⬜ Pending |
+| 2.3 Pink/Brown Noise Generation | [#11](https://github.com/GabrieleTurchetti/privacy-shield/issues/11) | ⬜ Pending |
+| 2.4 Adaptive Masking Algorithm | [#12](https://github.com/GabrieleTurchetti/privacy-shield/issues/12) | ⬜ Pending |
+| 2.5 Autonomous Mode | [#13](https://github.com/GabrieleTurchetti/privacy-shield/issues/13) | ⬜ Pending |
+| 2.6 Real-Room Test | [#14](https://github.com/GabrieleTurchetti/privacy-shield/issues/14) | ⬜ Pending |
+
 ### Task 2.1 — Audio Capture Buffer Pipeline
 
-This is the foundation of the entire audio pipeline. The ESP32-S3 I2S peripheral supports hardware DMA (Direct Memory Access), meaning audio samples arrive in memory without CPU intervention. We need to set this up correctly.
+The ESP32-S3 I2S peripheral supports hardware DMA (Direct Memory Access), meaning audio samples arrive in memory without CPU intervention.
 
 **How it works:**
 - The I2S peripheral continuously captures audio samples from the MEMS microphone
@@ -69,11 +100,6 @@ This is the foundation of the entire audio pipeline. The ESP32-S3 I2S peripheral
 **Memory usage per buffer:**
 - 512 samples × 2 bytes per sample = 1KB per buffer
 - 4 buffers = 4KB total — negligible on an 8MB PSRAM device
-
-**Why this matters:**
-- If the CPU doesn't process a buffer before DMA fills the next one, samples are lost (underrun)
-- 32ms per buffer gives the CPU ample time (at 240MHz) to run VAD + AEC between interrupts
-- The double-buffer design ensures **zero audio drops** as long as processing stays under 32ms
 
 **Verification:**
 - Log buffer timestamps — they should arrive every ~32ms with no gaps
@@ -118,13 +144,18 @@ This is the foundation of the entire audio pipeline. The ESP32-S3 I2S peripheral
 
 **Goal:** Eliminate the feedback loop where the mic hears its own transducer output.
 
+| Task | Issue | Status |
+|---|---|---|
+| 3.1 AEC Algorithm Implementation (NLMS) | [#15](https://github.com/GabrieleTurchetti/privacy-shield/issues/15) | ⬜ Pending |
+| 3.2 Double-Talk Detection (Geigel) | [#16](https://github.com/GabrieleTurchetti/privacy-shield/issues/16) | ⬜ Pending |
+| 3.3 AEC Integration with Pipeline | [#17](https://github.com/GabrieleTurchetti/privacy-shield/issues/17) | ⬜ Pending |
+| 3.4 AEC Stability Testing | [#18](https://github.com/GabrieleTurchetti/privacy-shield/issues/18) | ⬜ Pending |
+
 ### Task 3.1 — AEC Algorithm Implementation
 
 AEC solves a specific problem: the microphone hears not only the conversation, but also the masking noise coming from the transducer. Without AEC, the system would try to mask the masking noise itself — creating a feedback loop.
 
 **How NLMS (Normalized Least Mean Squares) works:**
-
-The core idea is we know exactly what audio we're sending to the transducer (the "reference signal"). The mic hears a delayed, distorted version of that reference (echo) mixed with the actual speech. We want to subtract the echo.
 
 ```
 Reference (what we play) ──┬──► estimated echo path (filter) ──► estimated echo
@@ -143,68 +174,24 @@ Mic signal ─────────────────┴─────
 **Filter length: 512–1024 taps**
 - At 16kHz sample rate, 512 taps = 32ms of echo path
 - At 16kHz sample rate, 1024 taps = 64ms of echo path
-- A door-mounted transducer → mic path might have reflections up to ~40ms
-- 1024 taps gives a safety margin
 - Memory: 1024 taps × 4 bytes (float) = 4KB for the filter — plus internal buffers (~8KB total)
-- Well within ESP32-S3 PSRAM limits
-
-**Convergence considerations:**
-- NLMS converges within a few hundred milliseconds in a quiet room
-- Convergence speed is controlled by `mu` (step size):
-  - Higher mu = faster convergence but noisier filter (less echo removal)
-  - Lower mu = slower but cleaner
-  - Start with `mu = 0.1` and tune
-- The "normalized" part means the update is scaled by the reference signal power, making it stable regardless of volume
 
 **Implementation on ESP32-S3:**
 - All operations use fixed-point (int32) to avoid FPU overhead
-- ESP32-S3 has no hardware FPU for single-precision; fixed-point is 5-10x faster
 - The AEC loop runs once per buffer (every 32ms)
-- Budget: under 10ms of CPU time per 32ms buffer is achievable
+- Budget: under 10ms of CPU time per 32ms buffer
 
-**Output:**
-- The error signal = microphone input with the masking echo subtracted
-- This clean signal is fed to VAD (Sprint 2)
-- Result: VAD correctly detects speech, not the masking noise
+### Task 3.2 — Double-Talk Detection (Geigel Algorithm)
 
-### Task 3.2 — Double-Talk Detection
+Double-talk is when **both** the transducer is playing masking noise AND a person is speaking. During double-talk, AEC adaptation must be frozen to prevent filter divergence.
 
-**What is double-talk?**
-
-Double-talk is when **both** things happen at the same time:
-- The transducer is playing masking noise
-- A person in the room is speaking
-
-**Why it's a problem:**
-
-The AEC filter needs to differentiate between:
-- "Echo" (masking noise re-captured by the mic) — should be cancelled
-- "Near-end speech" (a person talking) — should be preserved
-
-During double-talk, if the AEC filter keeps adapting, it mistakes the speech for echo and tries to cancel it. This causes the filter coefficients to drift in the wrong direction — called **filter divergence**. Once diverged, the filter needs to re-converge, causing a period of poor echo cancellation or even audible artifacts.
-
-**The Geigel Algorithm (standard approach):**
-
-This is a simple and effective double-talk detector commonly used with AEC:
-
+**The Geigel Algorithm:**
 1. Compare the microphone signal level to the reference signal level
-2. If `|mic_signal| > γ × |reference_signal|`, declare **double-talk**
-   - γ (gamma) is typically 0.5 to 0.7
-   - This means: if mic signal is more than ~60% of reference, speech must be happening
-3. During double-talk: **freeze AEC adaptation** (keep filter coefficients unchanged)
+2. If `|mic_signal| > γ × |reference_signal|`, declare double-talk (γ = 0.5–0.7)
+3. During double-talk: **freeze AEC adaptation**
 4. When double-talk ends: resume adaptation
 
-**Why this works:**
-- The echo path has a natural attenuation (transducer → air → mic typically loses 6-20dB)
-- So the echo coming back is always quieter than what was sent
-- If the mic signal is nearly as loud as the reference, **there must be a local speaker**
-
-**Implementation details:**
-- Compute short-term energy (RMS) of last 32ms for both reference and mic signal
-- Compare every buffer cycle (every 32ms)
-- Add a hold time (~100ms) — once double-talk is detected, stay in double-talk mode briefly
-- This prevents rapid toggling when speech starts/stops
-- If double-talk persists for > 30 seconds, force a 1-step update (prevents permanent freeze on mis-detection)
+**Why this works:** The echo path has natural attenuation (6-20dB loss). If mic signal is nearly as loud as reference, there must be a local speaker.
 
 ### Task 3.3 — AEC Integration with Pipeline
 - Mic → AEC → VAD → Masking decision
@@ -226,6 +213,15 @@ This is a simple and effective double-talk detector commonly used with AEC:
 
 **Goal:** Full control interface + final hardware design.
 
+| Task | Issue | Status |
+|---|---|---|
+| 4.1 Hub ESP32 Firmware | [#19](https://github.com/GabrieleTurchetti/privacy-shield/issues/19) | ⬜ Pending |
+| 4.2 Web Dashboard (HTML/CSS/JS) | [#20](https://github.com/GabrieleTurchetti/privacy-shield/issues/20) | ⬜ Pending |
+| 4.3 Hub REST API | [#21](https://github.com/GabrieleTurchetti/privacy-shield/issues/21) | ⬜ Pending |
+| 4.4 Mesh Nodes Receive Commands | [#22](https://github.com/GabrieleTurchetti/privacy-shield/issues/22) | ⬜ Pending |
+| 4.5 3D-Printed Enclosure Design | [#23](https://github.com/GabrieleTurchetti/privacy-shield/issues/23) | ⬜ Pending |
+| 4.6 Enclosure Assembly + Testing | [#24](https://github.com/GabrieleTurchetti/privacy-shield/issues/24) | ⬜ Pending |
+
 ### Task 4.1 — Hub ESP32 Firmware
 - One ESP32-S3 configured as Hub
 - Runs WiFi softAP + ESP-NOW simultaneously
@@ -234,40 +230,30 @@ This is a simple and effective double-talk detector commonly used with AEC:
 
 ### Task 4.2 — Web Dashboard (HTML/CSS/JS)
 - Served directly from the Hub's SPIFFS filesystem
-- Pages:
-  - **Status page:** list all nodes in mesh with ID, battery level, uptime, masking state
-  - **Control page:** tap to mute/unmute per node, global mute, set volume per node
-  - **Settings:** optional (thresholds, sensitivity, etc.)
-- Auto-refresh via JavaScript polling (every ~2s)
-- Responsive design (works on phone, tablet, desktop)
+- Pages: Status (nodes, battery, uptime, masking state), Control (mute/unmute, volume), Settings
+- Auto-refresh via JavaScript polling (~2s)
+- Responsive design (phone, tablet, desktop)
 
 ### Task 4.3 — Hub REST API
 - `GET /api/nodes` → JSON list of all nodes + stats
 - `POST /api/node/{id}/mute` → mute a node
 - `POST /api/node/{id}/unmute` → unmute a node
-- `POST /api/node/{id}/volume?level=50` → set volume (0-100)
-- `POST /api/global/mute` → mute all nodes
-- `POST /api/global/unmute` → unmute all nodes
-- Hub translates HTTP commands into ESP-NOW messages to target nodes
+- `POST /api/node/{id}/volume?level=50` → set volume
+- `POST /api/global/mute` → mute all
+- `POST /api/global/unmute` → unmute all
 
 ### Task 4.4 — Mesh Nodes: Receive Commands
-- All nodes parse incoming ESP-NOW messages from the Hub
+- Parse incoming ESP-NOW COMMAND messages from the Hub
 - Respond to mute, unmute, volume commands
-- Broadcast status updates (battery, uptime) on request or periodically
+- Broadcast status updates (battery, uptime) periodically
 
 ### Task 4.5 — 3D-Printed Enclosure Design
-- Design enclosure with two chambers:
-  - Mic chamber (isolated, foam-mounted, small port to room)
-  - Transducer chamber (firmly coupled to surface)
+- Two chambers: mic (isolated, foam-mounted, port to room) + transducer (surface-coupled)
 - Physical isolation between chambers
-- Battery compartment accessible
-- Ventilation for MAX98357A heatsink
+- Battery compartment + ventilation for MAX98357A
 
 ### Task 4.6 — Enclosure Assembly + Testing
-- 3D print prototype enclosures
-- Assemble electronics inside
-- Test masking effectiveness with enclosure
-- Verify isolation is sufficient (no vibration pick-up)
+- 3D print, assemble, test masking effectiveness
 - Long-duration test (8h+ continuous)
 
-**Deliverable:** Full system: autonomous masking mesh + controlled from any browser + enclosed in a 3D-printed case.
+**Deliverable:** Full system: autonomous masking mesh + browser-controlled + 3D-printed enclosure.

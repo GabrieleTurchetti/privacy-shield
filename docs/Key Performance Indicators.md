@@ -72,8 +72,8 @@ Where:
 
 Used for adaptive gain and amplitude tracking.
 
-## Sound Emmiting Indicators
-Under this header are the Key Performance Indicators for emmiting sound (Speaker - Transducer).
+## Sound Emitting Indicators
+Under this header are the Key Performance Indicators for emitting sound (Speaker - Transducer).
 
 ### Masking Efficiency
 

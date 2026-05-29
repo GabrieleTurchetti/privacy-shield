@@ -1,0 +1,58 @@
+menu "Privacy Shield Configuration"
+
+    # =================================================================
+    #  Build Mode
+    # =================================================================
+    choice PRIVACY_SHIELD_BUILD_MODE
+        prompt "Build mode"
+        default PRIVACY_SHIELD_BUILD_DEBUG
+        help
+            Debug mode:
+              - Raw audio samples printed over serial (2M baud)
+              - All log levels enabled
+              - Per-subsystem toggles available below
+
+            Production mode:
+              - No raw audio output
+              - All component logs silenced (WARN only)
+              - Main tag stays at INFO (banner + neighbor count)
+
+        config PRIVACY_SHIELD_BUILD_DEBUG
+            bool "Debug (raw audio + verbose logs)"
+        config PRIVACY_SHIELD_BUILD_PRODUCTION
+            bool "Production (DSP pipeline + quiet logs)"
+    endchoice
+
+    # Derived: used by i2s_mic.c to toggle raw audio dump
+    config PRIVACY_SHIELD_DEBUG_MODE
+        bool
+        default y if PRIVACY_SHIELD_BUILD_DEBUG
+        default n if PRIVACY_SHIELD_BUILD_PRODUCTION
+
+    # =================================================================
+    #  Per-Subsystem Log Toggles (Debug mode only)
+    # =================================================================
+    menu "Subsystem Log Levels"
+        visible if PRIVACY_SHIELD_BUILD_DEBUG
+
+        config PRIVACY_SHIELD_LOG_MESH
+            bool "Mesh log level: Debug"
+            default y
+            help
+                When ON: mesh_core + discovery log at DEBUG.
+                Shows HELLO broadcasts, neighbor table changes, send status.
+
+                When OFF: mesh_core at INFO, discovery at WARN.
+
+        config PRIVACY_SHIELD_LOG_AUDIO
+            bool "Audio log level: Debug"
+            default y
+            help
+                When ON: AUDIO_HAL_MIC logs at DEBUG.
+                Shows calibration details, buffer reads, sample counts.
+
+                When OFF: AUDIO_HAL_MIC at WARN.
+
+    endmenu
+
+endmenu
