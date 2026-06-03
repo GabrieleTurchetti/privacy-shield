@@ -24,6 +24,7 @@
 #define LOG_TAG_VAD         "DSP_VAD"         /* future: voice activity detection */
 #define LOG_TAG_NOISE_GEN   "DSP_NOISE"       /* future: pink/brown noise gen */
 #define LOG_TAG_AEC         "DSP_AEC"         /* future: acoustic echo cancellation */
+#define LOG_TAG_AUDIO_AFE   "AUDIO_AFE"
 
 /* ---- Web Dashboard ---- */
 #define LOG_TAG_WEB         "WEB_DASHBOARD"   /* future: Hub HTTP server + API */

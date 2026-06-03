@@ -1,11 +1,19 @@
 import sys
-import serial
+try:
+    import serial
+except ImportError:
+    print("Error! The pyserial package is required. Install it with 'pip install pyserial'.")
+    sys.exit(1)
 import numpy as np
-import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtWidgets
+try:
+    import pyqtgraph as pg
+    from pyqtgraph.Qt import QtCore, QtWidgets
+except ImportError:
+    print("Error! The pyqtgraph package is required. Install it with 'pip install pyqtgraph'.")
+    sys.exit(1)
 
 # Port configuration
-PORT = 'COM4'
+PORT = '/dev/ttyUSB0'
 BAUD_RATE = 2000000
 
 # Serial Connections

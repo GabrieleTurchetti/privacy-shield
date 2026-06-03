@@ -4,7 +4,7 @@
 /*  I2S Microphone (MEMS) pins                                              */
 /* -------------------------------------------------------------------------- */
 
-#define PIN_I2S_MIC_LRCLK   GPIO_NUM_4    /* Left-right clock (word select) / LRCL  / WS */
+#define PIN_I2S_MIC_LRCLK   GPIO_NUM_4    /* L/R clock (word select) / LRCL  / WS */
 #define PIN_I2S_MIC_DIN     GPIO_NUM_5    /* Data in (from mic) / DIN / SD */
 #define PIN_I2S_MIC_BCLK    GPIO_NUM_6    /* Bit clock / BCLK / SCK */
 

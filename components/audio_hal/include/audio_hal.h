@@ -8,7 +8,7 @@
 // ==========================================================
 
 // Initialize the I2S microphone hardware
-void audio_hal_mic_init(void);
+esp_err_t audio_hal_mic_init(void);
 
 // FreeRTOS task for continuously reading microphone data
 void audio_hal_mic_read_task(void *pvParameters);

@@ -9,9 +9,15 @@ CONFIG_SPIRAM=y
 CONFIG_SPIRAM_MODE_OCT=y
 CONFIG_SPIRAM_FETCH_INSTRUCTIONS=y
 CONFIG_SPIRAM_RODATA=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+CONFIG_SPIRAM_USE_MALLOC=y
 
 # Set FreeRTOS tick rate to 1000Hz (1 tick = 1ms) for audio timing
 CONFIG_FREERTOS_HZ=1000
+
+# Debug mode: dump raw audio over serial (disable for production)
+CONFIG_PRIVACY_SHIELD_DEBUG_MODE=y
 
 # ---- Privacy Shield Configuration ----
 # Build mode: Debug (raw audio dump + verbose logs)
@@ -20,3 +26,33 @@ CONFIG_PRIVACY_SHIELD_BUILD_DEBUG=y
 # Per-subsystem debug logging (only active in Debug build mode)
 CONFIG_PRIVACY_SHIELD_LOG_MESH=y
 CONFIG_PRIVACY_SHIELD_LOG_AUDIO=y
+
+
+# Partition for Speech Recognition
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="components/dsp_engine/partitions/esp32s3_afe.csv"
+  
+# Flash size
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="8MB"
+
+# ESP-SR model location
+CONFIG_MODEL_IN_FLASH=y
+
+# AFE interface
+CONFIG_AFE_INTERFACE_V1=y
+
+# Noise suppression model
+CONFIG_SR_NSN_NSNET2=n
+
+# Voice activity detection model
+CONFIG_SR_VADN_VADNET1_MEDIUM=y
+
+# Monitor Speed (BAUDRATE)
+CONFIG_ESP_CONSOLE_UART_BAUDRATE= 115200
+CONFIG_ESPTOOLPY_MONITOR_BAUD= 115200
+
+# Frequency Rate
+CONFIG_XTAL_FREQ_AUTO=y
+
+

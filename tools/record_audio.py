@@ -7,7 +7,7 @@ import os
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Serial configuration
-PORT = 'COM4' # Replace with your exact port
+PORT = '/dev/ttyUSB0' # Replace with your exact port
 BAUD_RATE = 2000000
 SAMPLE_RATE = 16000 
 OUTPUT_FILENAME = os.path.join(script_dir, "audio.wav")
