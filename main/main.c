@@ -44,8 +44,10 @@ static void log_levels_init(void) {
     /* Audio subsystem */
 #ifdef CONFIG_PRIVACY_SHIELD_LOG_AUDIO
     esp_log_level_set(LOG_TAG_AUDIO_MIC, ESP_LOG_DEBUG);
+    esp_log_level_set(LOG_TAG_AUDIO_AMP, ESP_LOG_DEBUG);
 #else
     esp_log_level_set(LOG_TAG_AUDIO_MIC, ESP_LOG_WARN);
+    esp_log_level_set(LOG_TAG_AUDIO_AMP, ESP_LOG_WARN);
 #endif
 
     /* Main always at INFO */
@@ -167,4 +169,12 @@ void app_main(void) {
     xTaskCreatePinnedToCore(afe_processing_task, "AFE_Proc_Task", 8192, NULL, 5, NULL, 0);
 
     ESP_LOGI(TAG, "System Pipeline Up and Operational.");
+
+    // Initialize hardware peripherals
+    audio_hal_speaker_init();
+    
+#if defined(CONFIG_PRIVACY_SHIELD_BUILD_DEBUG) && defined(CONFIG_PRIVACY_SHIELD_LOG_AUDIO)
+    // Launch FreeRTOS tasks
+    xTaskCreate(sine_wave_task, "sine_wave_task", 4096, NULL, 5, NULL);
+#endif
 }

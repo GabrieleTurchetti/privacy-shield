@@ -100,7 +100,7 @@ void audio_hal_mic_read_task(void *pvParameters) {
 #if defined(CONFIG_PRIVACY_SHIELD_BUILD_DEBUG) && defined(CONFIG_PRIVACY_SHIELD_LOG_AUDIO)
             for (int i = 0; i < samples_read; i++) {
                 // Apply offset correction and print to serial
-                printf("%ld\n", (raw_samples[i] >> 16) - dc_offset);
+                ESP_LOGD(TAG, "%ld\n", (raw_samples[i] >> 16) - dc_offset);
             }
 #endif
 
