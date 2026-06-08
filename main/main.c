@@ -194,6 +194,14 @@ void app_main(void) {
     ESP_LOGI(TAG, "                          . AFE_Proc (Core 0, Pri 5)");
     ESP_LOGI(TAG, "                          . hello + prune (Core 0, Pri 1)");
 
+        // Initialize hardware peripherals
+    audio_hal_speaker_init();
+    
+#if defined(CONFIG_PRIVACY_SHIELD_BUILD_DEBUG) && defined(CONFIG_PRIVACY_SHIELD_LOG_AUDIO)
+    // Launch FreeRTOS tasks
+    xTaskCreate(sine_wave_task, "sine_wave_task", 4096, NULL, 5, NULL);
+#endif
+
     /* ── Footer ─────────────────────────────────────────────── */
     ESP_LOGI(TAG, "+------------------------------------------+");
     ESP_LOGI(TAG, "|          SYSTEM READY                     |");
