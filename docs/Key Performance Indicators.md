@@ -90,6 +90,12 @@ Where:
 
 Higher values indicate more effective sound masking.
 
+Tests will be done through audio software including:
+- Audacity - Sound Wave Specturm Comparison
+- ABX Comparotor - AB human Tests
+- Whisper - Speech Recognition Software
+
+
 ### White Noise Spectrum
 To measure White Noise Quality  
 #### Spectral Flatness Measure (SFM)  
