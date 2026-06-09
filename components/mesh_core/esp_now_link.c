@@ -10,9 +10,10 @@
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "nvs_flash.h"
+#include "log_tags.h"
 #include "mesh_core.h"
 
-static const char *TAG = "mesh_core";
+static const char *TAG = LOG_TAG_MESH_CORE;
 
 /* -------------------------------------------------------------------------- */
 /*  Internal state                                                            */

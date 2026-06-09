@@ -53,6 +53,8 @@ Each node broadcasts periodic HELLO packets, discovers neighbors automatically, 
 | `node_discovery.c` | Neighbor table, timeout management |
 | `CMakeLists.txt` | Build dependencies |
 
+**Log tags:** All TAG strings are defined in `main/include/log_tags.h`. See `docs/Logging_Guide.md` for log level control.
+
 ---
 
 ## Getting Started

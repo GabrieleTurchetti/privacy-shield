@@ -2,10 +2,11 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+#include "log_tags.h"
 #include "mesh_core.h"
 #include "esp_mac.h"
 
-static const char *TAG = "discovery";
+static const char *TAG = LOG_TAG_DISCOVERY;
 
 /* Forward-declare the internal mesh state (defined in esp_now_link.c).
  * We access it through the getter, but this helper operates directly for speed. */

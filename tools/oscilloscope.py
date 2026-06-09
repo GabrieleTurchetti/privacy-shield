@@ -74,7 +74,7 @@ def update():
 
             try:
                 # Try the conversion
-                val = int(text)
+                val = int(text) + 3300
                 new_values.append(val)
             except ValueError:
                 pass

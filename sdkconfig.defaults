@@ -1,22 +1,32 @@
-﻿# Set the correct microcontroller target
+# Set the correct microcontroller target
 CONFIG_IDF_TARGET="esp32s3"
 
 # Maximize CPU frequency (240MHz) for heavy audio processing
 CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
 
-# Enable external memory (8MB PSRAM)
+# Enable external memory (8MB PSRAM) in Octal mode
 CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
 CONFIG_SPIRAM_FETCH_INSTRUCTIONS=y
 CONFIG_SPIRAM_RODATA=y
 CONFIG_SPIRAM_MODE_OCT=y
 CONFIG_SPIRAM_SPEED_80M=y
 CONFIG_SPIRAM_USE_MALLOC=y
 
-# Set FreeRTOS tick rate to 1000Hz (1 tick = 1ms) to handle audio without delays
+# Set FreeRTOS tick rate to 1000Hz (1 tick = 1ms) for audio timing
 CONFIG_FREERTOS_HZ=1000
 
 # Debug mode: dump raw audio over serial (disable for production)
 CONFIG_PRIVACY_SHIELD_DEBUG_MODE=y
+
+# ---- Privacy Shield Configuration ----
+# Build mode: Debug (raw audio dump + verbose logs)
+CONFIG_PRIVACY_SHIELD_BUILD_DEBUG=y
+
+# Per-subsystem debug logging (only active in Debug build mode)
+CONFIG_PRIVACY_SHIELD_LOG_MESH=y
+CONFIG_PRIVACY_SHIELD_LOG_AUDIO=y
+
 
 # Partition for Speech Recognition
 CONFIG_PARTITION_TABLE_CUSTOM=y
@@ -44,3 +54,5 @@ CONFIG_ESPTOOLPY_MONITOR_BAUD= 115200
 
 # Frequency Rate
 CONFIG_XTAL_FREQ_AUTO=y
+
+
