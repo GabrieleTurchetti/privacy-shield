@@ -17,6 +17,7 @@ static const char *TAG = LOG_TAG_MAIN;
 
 // Shared Queue handling raw audio chunks between Core 1 and Core 0
 QueueHandle_t audio_ai_queue = NULL;
+QueueHandle_t noise_queue = NULL; 
 
 /* -------------------------------------------------------------------------- */
 /* Log level setup — see Kconfig.projbuild for per-subsystem toggles         */
@@ -89,7 +90,7 @@ static void hello_task(void *arg) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Prune task — clean up timed-out neighbors every 2 seconds                 */
+/* Prune task — clean up timed-out neighbors every 10 seconds                 */
 /* -------------------------------------------------------------------------- */
 
 static void prune_task(void *arg) {
@@ -99,7 +100,28 @@ static void prune_task(void *arg) {
         if (count > 0) {
             ESP_LOGI(LOG_TAG_MESH_CORE, "%d neighbor(s) online", count);
         }
-        vTaskDelay(pdMS_TO_TICKS(2000));
+        vTaskDelay(pdMS_TO_TICKS(10000));
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Status task — Broadcast status of the node, like masking, volume etc       */
+/* -------------------------------------------------------------------------- */
+
+static void status_task(void *arg) {
+    TickType_t last_wake = xTaskGetTickCount();
+    while (1) {
+        mesh_status_pkt_t status = {0};
+        status.header.type = MESH_PKT_STATUS;
+        status.header.src_id = DEFAULT_NODE_ID;
+        status.header.timestamp_ms = pdTICKS_TO_MS(xTaskGetTickCount());
+        status.masking_active = is_afe_speech() /* read from VAD state */;
+        status.volume = 100 /* read from current volume */;
+        status.battery_pct = 85;  // placeholder, real sensor later
+        status.uptime_s = xTaskGetTickCount() * portTICK_PERIOD_MS / 1000;
+
+        mesh_broadcast(&status, sizeof(status));
+        vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(5000));
     }
 }
 
@@ -159,6 +181,7 @@ void app_main(void) {
     mesh_register_recv_callback(on_mesh_packet);
     xTaskCreate(hello_task, "hello", 2048, NULL, 1, NULL);
     xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
+    xTaskCreate(status_task, "status", 4096, NULL, 1, NULL);
     ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ node %u, " MACSTR,
              DEFAULT_NODE_ID, MAC2STR(mesh_get_state()->my_mac));
 
@@ -177,6 +200,11 @@ void app_main(void) {
         ESP_LOGE(TAG, "  [!!] Audio queue creation failed!");
         return;
     }
+    noise_queue = xQueueCreate(2, AFE_FEED_SAMPLES * sizeof(int16_t));
+    if(noise_queue == NULL) {
+        ESP_LOGE(TAG, "  [!!] Noise queue creation failed!");
+        return;
+    }
 
     /* ── Audio ──────────────────────────────────────────────── */
     ESP_LOGI(TAG, "  [..] Initializing I2S Microphone...");
@@ -187,6 +215,11 @@ void app_main(void) {
     }
     ESP_LOGI(TAG, "  [OK] I2S Microphone ...... 16 kHz, 32-bit, Mono");
 
+    /* ── Amplifier ──────────────────────────────────────────────── */
+    ESP_LOGI(TAG, "  [..] Initializing I2S Amplifier...");
+    audio_hal_speaker_init(); // We should decide a standard: Function do o do not return esp_err_t? For now, it just logs and continues.
+    ESP_LOGI(TAG, "  [OK] I2S Amplifier ...... 16 kHz, 32-bit, Mono");
+
     xTaskCreatePinnedToCore(audio_hal_mic_read_task, "Mic_Read", 4096, NULL, 5, NULL, 1);
     xTaskCreatePinnedToCore(afe_processing_task, "AFE_Proc", 8192, NULL, 5, NULL, 0);
 
@@ -194,12 +227,10 @@ void app_main(void) {
     ESP_LOGI(TAG, "                          . AFE_Proc (Core 0, Pri 5)");
     ESP_LOGI(TAG, "                          . hello + prune (Core 0, Pri 1)");
 
-        // Initialize hardware peripherals
-    audio_hal_speaker_init();
     
 #if defined(CONFIG_PRIVACY_SHIELD_BUILD_DEBUG) && defined(CONFIG_PRIVACY_SHIELD_LOG_AUDIO)
     // Launch FreeRTOS tasks
-    xTaskCreate(sine_wave_task, "sine_wave_task", 4096, NULL, 5, NULL);
+    xTaskCreate(audio_hal_speaker_task, "sine_wave_task", 4096, NULL, 5, NULL);
 #endif
 
     /* ── Footer ─────────────────────────────────────────────── */

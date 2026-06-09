@@ -16,8 +16,6 @@
 #define PIN_AMP_DOUT        GPIO_NUM_17   /* Data out (to amp) */
 #define PIN_AMP_SD          GPIO_NUM_18   /* Shutdown pin (active low — pull high to enable) */
 
-#define SPK_SAMPLE_RATE     16000
-
 /* -------------------------------------------------------------------------- */
 /*  Status LED                                                               */
 /* -------------------------------------------------------------------------- */

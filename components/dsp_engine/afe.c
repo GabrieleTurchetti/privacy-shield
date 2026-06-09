@@ -15,15 +15,19 @@
 #include "global_config.h"
 #include "model_path.h"
 #include "log_tags.h"
+#include "volume.h"
+#include "noise_gen.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 
 static const char *TAG = LOG_TAG_AUDIO_AFE;
+static uint8_t last_volume = 0;
 
 static const esp_afe_sr_iface_t *afe_handle = NULL;
 static esp_afe_sr_data_t *afe_data = NULL;
 extern QueueHandle_t audio_ai_queue;
+extern QueueHandle_t noise_queue;
 
 static int feed_chunksize = 0;
 static int feed_channels = 0;
@@ -217,6 +221,10 @@ audio_afe_vad_state_t get_afe_state() {
     return AFE_STATE; 
 }
 
+bool is_afe_speech() {
+    return AFE_STATE == AUDIO_AFE_VAD_SPEECH;
+}
+
 void audio_afe_destroy(void) {
     if (afe_handle != NULL && afe_data != NULL) {
         afe_handle->destroy(afe_data);
@@ -239,10 +247,17 @@ void audio_afe_destroy(void) {
 void afe_processing_task(void *pvParameters) {
 
     int16_t mic_frame[AFE_FEED_SAMPLES];
+    int16_t noise_buffer[AFE_FEED_SAMPLES];
     int feed_bytes = 0;
 
     // Track VAD state change to avoid spamming the log console
     AFE_STATE = AUDIO_AFE_VAD_SILENCE;
+
+    volume_state_t vol_state;
+    volume_init(&vol_state);            
+    noise_gen_init(NOISE_TYPE_PINK);    
+   // uint8_t frame_count = 0;
+   // float calibration_sum = 0.0f;
 
     ESP_LOGI(TAG, "AFE processing task started on Core %d", xPortGetCoreID());
 
@@ -283,6 +298,40 @@ void afe_processing_task(void *pvParameters) {
 
                     AFE_STATE = result.vad_state;
                 }
+                /*if (frame_count < 32) {
+                    calibration_sum += compute_rms(mic_frame, AFE_FEED_SAMPLES);
+                    frame_count++;
+                    if (frame_count == 32) {
+                        volume_calibrate(&vol_state, calibration_sum / 32.0f);
+                        ESP_LOGI(TAG, "Volume calibrated — noise floor: %.0f RMS", vol_state.noise_floor);
+                    }
+                    continue;  // skip processing during calibration
+                }*/
+                noise_gen_fill(noise_buffer, AFE_FEED_SAMPLES);
+                bool masking;
+                uint8_t volume_pct = 0;
+                if (get_afe_state() == AUDIO_AFE_VAD_SPEECH) {
+                    // Someone talking — normal volume from RMS
+                    volume_pct = volume_process_frame(&vol_state, mic_frame,
+                                                            noise_buffer, AFE_FEED_SAMPLES,
+                                                            &masking);
+                } else {
+                    // Silence — force ramp to zero
+                    float level = volume_ramp(&vol_state, 0.0f);
+                    apply_volume(noise_buffer, AFE_FEED_SAMPLES, level);
+                    masking = false;
+                }
+                if (abs(volume_pct - last_volume) >= 5) {
+                        if(masking) {
+                            ESP_LOGI(TAG, "Masking active — volume %u%%", volume_pct);
+                        } else {
+                            ESP_LOGI(TAG, "Masking inactive — volume %u%%", volume_pct);
+                        }
+                        last_volume = volume_pct;
+                    }
+
+                xQueueSend(noise_queue, noise_buffer, portMAX_DELAY);
+
             }
         }
     }
