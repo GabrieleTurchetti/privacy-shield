@@ -16,8 +16,6 @@
 #define PIN_AMP_DOUT        GPIO_NUM_17   /* Data out (to amp) */
 #define PIN_AMP_SD          GPIO_NUM_18   /* Shutdown pin (active low — pull high to enable) */
 
-#define SPK_SAMPLE_RATE     16000
-
 /* -------------------------------------------------------------------------- */
 /*  Status LED                                                               */
 /* -------------------------------------------------------------------------- */
@@ -26,4 +24,4 @@
 /* -------------------------------------------------------------------------- */
 /*  Node defaults                                                            */
 /* -------------------------------------------------------------------------- */
-#define DEFAULT_NODE_ID     2    /* Change per device (1–254). 0 = hub. */
+#define DEFAULT_NODE_ID     1    /* Change per device (1–254). 0 = hub. */

@@ -10,6 +10,7 @@
 
 static const char *TAG = LOG_TAG_AUDIO_AMP;
 static i2s_chan_handle_t tx_chan;
+extern QueueHandle_t noise_queue;
 
 void audio_hal_speaker_init(void) {
     ESP_LOGI(TAG, "Initializing I2S TX for MAX98357A...");
@@ -42,7 +43,22 @@ void audio_hal_speaker_init(void) {
     ESP_LOGI(TAG, "Amplifier ready to use.");
 }
 
-void sine_wave_task(void *pvParameters) {
+void audio_hal_speaker_task(void *pvParameters) {
+    int16_t buffer[AFE_FEED_SAMPLES];
+    size_t bytes_written;
+    
+    while (1) {
+        xQueueReceive(noise_queue, buffer, portMAX_DELAY);
+        // buffer is already scaled — volume was applied by the AFE task
+        
+        i2s_channel_write(tx_chan, buffer,
+                         AFE_FEED_SAMPLES * sizeof(int16_t),
+                         &bytes_written, portMAX_DELAY);
+    }
+}
+
+//TODO: Remove this
+/*void sine_wave_task(void *pvParameters) {
     const int SINE_FREQ_HZ = 1000;
     const int AMPLITUDE = 15000; // Max amplitude for 16-bit is 32767
     
@@ -67,4 +83,4 @@ void sine_wave_task(void *pvParameters) {
         // Infinitely stream the pre-calculated wave to the I2S amplifier
         i2s_channel_write(tx_chan, sine_buffer, samples_per_wave * sizeof(int16_t), &bytes_written, portMAX_DELAY);
     }
-}
+}*/

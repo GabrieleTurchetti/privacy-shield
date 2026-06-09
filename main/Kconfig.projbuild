@@ -52,6 +52,22 @@ menu "Privacy Shield Configuration"
                 Shows calibration details, buffer reads, sample counts.
 
                 When OFF: AUDIO_HAL_MIC at WARN.
+        config PRIVACY_SHIELD_LOG_AUDIO_AFE
+            bool "Audio AFE log level: Debug"
+            default y
+            help
+                When ON: LOG_TAG_AUDIO_AFE logs at DEBUG.
+                Shows calibration details, buffer reads, sample counts.
+
+                When OFF: LOG_TAG_AUDIO_AFE at WARN.
+        config CONFIG_PRIVACY_SHIELD_LOG_WEB
+            bool "Web log level: Debug"
+            default y
+            help
+                When ON: LOG_TAG_WEB logs at DEBUG.
+                Shows calibration details, buffer reads, sample counts.
+
+                When OFF: LOG_TAG_WEB at WARN.
 
     endmenu
 

@@ -42,6 +42,8 @@ esp_err_t audio_afe_init(const char *input_format);
  * */
 audio_afe_vad_state_t get_afe_state(void);
 
+bool is_afe_speech(void);
+
 /**
  * Feed one frame of raw int16 PCM into the AFE.
  *
