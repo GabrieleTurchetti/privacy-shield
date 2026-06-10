@@ -92,7 +92,7 @@ esp_err_t audio_afe_init(const char *input_format) {
     afe_config->vad_init = true;
     afe_config->vad_mode = VAD_MODE_1;
     afe_config->vad_min_noise_ms = 500;
-    afe_config->vad_min_speech_ms = 64;
+    afe_config->vad_min_speech_ms = 200;
     afe_config->vad_delay_ms = 128;
 
     /*
