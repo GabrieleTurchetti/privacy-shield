@@ -11,13 +11,10 @@
 /* -------------------------------------------------------------------------- */
 /*  I2S Amplifier (MAX98357A) pins                                          */
 /* -------------------------------------------------------------------------- */
-#define PIN_AMP_BCLK GPIO_NUM_15  /* Bit clock / LRC */
-#define PIN_AMP_LRCLK GPIO_NUM_16 /* Left-right clock (word select) / BCLK */
-#define PIN_AMP_DOUT GPIO_NUM_17  /* Data out (to amp) / DIN */
-
-// Unused
-// #define PIN_AMP_SD          GPIO_NUM_18   /* Shutdown pin (active low — pull
-// high to enable) */
+#define PIN_AMP_LRCLK       GPIO_NUM_15   /* Left-right clock (word select) */
+#define PIN_AMP_BCLK        GPIO_NUM_16   /* Bit clock */
+#define PIN_AMP_DOUT        GPIO_NUM_17   /* Data out (to amp) */
+#define PIN_AMP_SD          GPIO_NUM_18   /* Shutdown pin (active low — pull high to enable) */
 
 /* -------------------------------------------------------------------------- */
 /*  Status LED                                                               */
@@ -27,4 +24,4 @@
 /* -------------------------------------------------------------------------- */
 /*  Node defaults                                                            */
 /* -------------------------------------------------------------------------- */
-#define DEFAULT_NODE_ID     2    /* Change per device (1–254). 0 = hub. */
+#define DEFAULT_NODE_ID     1    /* Change per device (1–254). 0 = hub. */

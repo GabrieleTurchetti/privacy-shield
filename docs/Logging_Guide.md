@@ -118,13 +118,14 @@ To add a new component, define its tag there first, then use it in the `.c` file
 |---|---|---|---|
 | `esp_now_link.c` | `LOG_TAG_MESH_CORE` | `"mesh_core"` | Init, send failures, HELLO send |
 | `node_discovery.c` | `LOG_TAG_DISCOVERY` | `"discovery"` | New neighbor, timeout, table overflow |
-| `i2s_mic.c` | `LOG_TAG_AUDIO_MIC` | `"AUDIO_HAL_MIC"` | Calibration, buffer reads |
-| `max_amp.c` | `LOG_TAG_AUDIO_AMP` | `"audio_amp"` | (future) Amplifier/transducer |
-| `vad.c` | `LOG_TAG_VAD` | `"dsp_vad"` | (future) Voice activity detection |
-| `noise_gen.c` | `LOG_TAG_NOISE_GEN` | `"dsp_noise"` | (future) Noise generation |
+| `i2s_mic.c` | `LOG_TAG_AUDIO_MIC` | `"AUDIO_HAL_MIC"` | Calibration, buffer reads, underruns |
+| `max_amp.c` | `LOG_TAG_AUDIO_AMP` | `"audio_amp"` | Amplifier init, tone playback |
+| `afe.c` | `LOG_TAG_AUDIO_AFE` | `"audio_afe"` | VAD state, AFE pipeline, volume changes |
+| `noise_gen.c` | `LOG_TAG_NOISE_GEN` | `"dsp_noise"` | Noise type selection, buffer fills |
+| `volume.c` | `LOG_TAG_VAD` | `"dsp_vad"` | Volume calibration, level changes |
 | `aec_filter.c` | `LOG_TAG_AEC` | `"dsp_aec"` | (future) Echo cancellation |
 | `web_*.c` | `LOG_TAG_WEB` | `"web_dashboard"` | (future) Hub dashboard |
-| `main.c` | `LOG_TAG_MAIN` | `"main"` | Banner, neighbor count, commands |
+| `main.c` | `LOG_TAG_MAIN` | `"main"` | Banner, neighbor count, boot sequence |
 
 Usage in any `.c` file:
 ```c

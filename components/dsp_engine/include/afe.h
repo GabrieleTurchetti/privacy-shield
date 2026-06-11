@@ -11,16 +11,16 @@ extern "C" {
 #define AFE_FEED_SAMPLES 160 // Number of raw data samples for Audio Queue
 
 typedef enum {
-	AUDIO_AFE_VAD_SILENCE = 0,
-	AUDIO_AFE_VAD_SPEECH,
-	AUDIO_AFE_VAD_UNKNOWN,
+  AUDIO_AFE_VAD_SILENCE = 0,
+  AUDIO_AFE_VAD_SPEECH,
+  AUDIO_AFE_VAD_UNKNOWN,
 } audio_afe_vad_state_t;
 
 typedef struct {
-	int16_t *data;
-	int samples;
-	int channels;
-	audio_afe_vad_state_t vad_state;
+  int16_t *data;
+  int samples;
+  int channels;
+  audio_afe_vad_state_t vad_state;
 } audio_afe_result_t;
 
 /**
@@ -40,7 +40,9 @@ esp_err_t audio_afe_init(const char *input_format);
  * Returns the lates state of the AFE through either
  * Speech recognized, Silence or Unknown
  * */
-bool is_speech_recognized(void);
+audio_afe_vad_state_t get_afe_state(void);
+
+bool is_afe_speech(void);
 
 /**
  * Feed one frame of raw int16 PCM into the AFE.

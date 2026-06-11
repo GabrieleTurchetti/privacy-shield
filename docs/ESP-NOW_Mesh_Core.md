@@ -22,7 +22,7 @@ Each node broadcasts periodic HELLO packets, discovers neighbors automatically, 
 │            app_main()               │
 │  ┌──────────────┐  ┌─────────────┐  │
 │  │  hello_task  │  │  prune_task │  │
-│  │  (every 5s)  │  │  (every 2s) │  │
+│  │  (every 10s)  │  │  (every 2s) │  │
 │  └──────┬───────┘  └──────┬──────┘  │
 │         │                 │         │
 │  ┌──────▼─────────────────▼──────┐  │
@@ -84,7 +84,7 @@ void app_main(void) {
 
     // Start periodic tasks
     xTaskCreate(hello_task, "hello", 2048, NULL, 1, NULL);
-    xTaskCreate(prune_task, "prune", 2048, NULL, 1, NULL);
+    xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
 }
 ```
 
@@ -113,7 +113,7 @@ Initializes NVS, Wi-Fi (station mode), and ESP-NOW. Registers internal send/rece
 2. `esp_netif_init()` + `esp_event_loop_create_default()` — TCP/IP stack bootstrap
 3. `esp_wifi_init()` + `esp_wifi_set_mode(WIFI_MODE_STA)` — radio on, no AP association
 4. `esp_now_init()` — ESP-NOW protocol ready
-5. `esp_now_register_send_cb_v2()` / `esp_now_register_recv_cb()` — callback registration
+5. `esp_now_register_send_cb()` / `esp_now_register_recv_cb()` — callback registration
 6. `esp_now_add_peer(broadcast)` — enable broadcast sends
 
 ### Sending Data
@@ -232,8 +232,8 @@ The reference `main.c` spawns two FreeRTOS tasks:
 
 | Task | Stack | Period | Purpose |
 |---|---|---|---|
-| `hello_task` | 2048 | 5s | Broadcast HELLO packets |
-| `prune_task` | 2048 | 2s | Clean up timed-out neighbors, log count |
+| `hello_task` | 2048 | 10s | Broadcast HELLO packets |
+| `prune_task` | 4096 | 2s | Clean up timed-out neighbors, log count |
 
 Both run at priority 1 (idle is 0, `app_main` is 1). The ESP-NOW callbacks run in the Wi-Fi task context (high priority) — keep callback code fast and non-blocking.
 
@@ -241,12 +241,12 @@ Both run at priority 1 (idle is 0, `app_main` is 1). The ESP-NOW callbacks run i
 
 ## ESP-IDF v5.5.4 Notes
 
-### Send callback v2
+### Send callback
 
-This component uses the **v2** send callback API introduced in ESP-IDF v5.0:
+This component uses the v1 send callback API — in ESP-IDF v5.5.4, `esp_now_send_info_t` is a typedef for `wifi_tx_info_t`:
 
 ```c
-esp_now_register_send_cb_v2(espnow_send_cb);
+esp_now_register_send_cb(espnow_send_cb);
 ```
 
 The callback receives a `const esp_now_send_info_t *` struct that includes the destination MAC (`des_addr`), enabling per-packet send status logging.
@@ -291,7 +291,7 @@ The `timestamp_ms` field in `mesh_header_t` records the sender's millisecond tic
 
 ### Stress test
 
-With 3+ nodes broadcasting HELLO every 5s, memory usage is:
+With 3+ nodes broadcasting HELLO every 10s, memory usage is:
 - Neighbor table: 16 × `sizeof(mesh_neighbor_t)` = 16 × 16 = 256 bytes
 - Mesh state: ~300 bytes total
 - Task stacks: ~4KB total

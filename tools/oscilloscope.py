@@ -1,3 +1,4 @@
+import re
 import sys
 try:
     import serial
@@ -13,7 +14,8 @@ except ImportError:
     sys.exit(1)
 
 # Port configuration
-PORT = '/dev/ttyUSB0'
+PORT = 'COM4'
+# PORT = '/dev/ttyUSB0'
 BAUD_RATE = 2000000
 
 # Serial Connections
@@ -45,6 +47,8 @@ window_size = 4000
 data = np.zeros(window_size)
 remainder = b'' # Stores data fragments between reads
 
+ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+
 # The update engine
 def update():
     global data, remainder
@@ -66,18 +70,23 @@ def update():
         new_values = []
 
         for line in lines:
+            print(line)
             text = line.decode('utf-8', errors='ignore').strip()
             
-            # If the line is empty, ignore it
             if not text:
                 continue
 
-            try:
-                # Try the conversion
-                val = int(text) + 3300
-                new_values.append(val)
-            except ValueError:
-                pass
+            clean_text = ansi_escape.sub('', text)
+
+            parts = clean_text.split(':')
+
+            if len(parts) > 0:
+                try:
+                    raw_number = parts[-1].strip()
+                    val = int(raw_number) + 3300
+                    new_values.append(val)
+                except ValueError:
+                    pass
         
         # If we found valid numbers, update the graph
         if new_values:
