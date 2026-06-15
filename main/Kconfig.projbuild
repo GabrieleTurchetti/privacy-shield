@@ -1,6 +1,25 @@
 menu "Privacy Shield Configuration"
 
     # =================================================================
+    #  Device Role
+    # =================================================================
+    choice PRIVACY_SHIELD_ROLE
+        prompt "Device Role"
+        default PRIVACY_SHIELD_ROLE_NODE
+        help
+            Node:  Full audio pipeline (mic + DSP + speaker) + ESP-NOW mesh.
+                   The masking device you attach to doors/windows.
+
+            Hub:   ESP-NOW mesh listener + WiFi softAP + Web dashboard.
+                   No audio hardware needed. Control all nodes from a browser.
+
+        config PRIVACY_SHIELD_ROLE_NODE
+            bool "Masking Node"
+        config PRIVACY_SHIELD_ROLE_HUB
+            bool "Hub Controller"
+    endchoice
+
+    # =================================================================
     #  Build Mode
     # =================================================================
     choice PRIVACY_SHIELD_BUILD_MODE
