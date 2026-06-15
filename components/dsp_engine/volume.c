@@ -1,6 +1,7 @@
 #include "volume.h"
 #include <math.h>
 #include <string.h>
+#include "esp_log.h"
 
 /* -------------------------------------------------------------------------- */
 /* Public API                                                                 */
@@ -9,7 +10,7 @@
 void volume_init(volume_state_t *vol) {
     vol->current = 0.0f;
     vol->attack_coeff = 0.10f;   /* 10ms  attack  (tracks voice dynamics) */
-    vol->release_coeff = 0.02f;  /* 50ms  release (fast fade-out) */
+    vol->release_coeff = 0.01f;  /* 100ms  release (fast fade-out) */
     vol->noise_floor = DEFAULT_NOISE_FLOOR;   /* Suitable for DC-corrected MEMS mic */
 }
 
@@ -59,6 +60,7 @@ uint8_t volume_process_frame(volume_state_t *vol,
                              int count, bool *masking_active) {
     /* Measure speech level from mic */
     float rms = compute_rms(mic_in, count);
+    ESP_LOGI("VOLUME", "RMS: %.1f (noise floor: %.1f)", rms, vol->noise_floor);
 
     /* Convert to target volume (log scale, respect noise floor) */
     float target = rms_to_volume(rms, vol->noise_floor);

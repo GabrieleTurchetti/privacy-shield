@@ -20,7 +20,7 @@ typedef struct {
 
 
 #define DEFAULT_NOISE_FLOOR 500.0f  /* Initial guess for noise floor RMS */
-#define MAX_RMS 5000.0f              /* RMS that maps to full volume (1.0) - Basically it's sensibility*/
+#define MAX_RMS 2500.0f              /* RMS that maps to full volume (1.0) - Basically it's sensibility*/
 
 /* -------------------------------------------------------------------------- */
 /*  API                                                                       */
@@ -29,7 +29,7 @@ typedef struct {
 /**
  * @brief Initialize a volume state with default attack/release.
  *
- * Default: 50ms attack, 500ms release, noise_floor=2000.
+ * Default: 10ms attack, 100ms release, noise_floor=500.
  * Call once at boot.
  */
 void volume_init(volume_state_t *vol);
