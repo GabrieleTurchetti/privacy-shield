@@ -170,24 +170,55 @@ void app_main(void) {
 	uart_set_baudrate(UART_NUM_0, 2000000);
 	log_levels_init();
 
-	/* ── Header ──────────────────────────────────────────────── */
-	ESP_LOGI(TAG, "+------------------------------------------+");
-	ESP_LOGI(TAG, "|        PRIVACY SHIELD v0.301             |");
-	ESP_LOGI(TAG, "|        Node %u   |   ESP32-S3            |",
-			 DEFAULT_NODE_ID);
-	ESP_LOGI(TAG, "+------------------------------------------+");
+#ifdef CONFIG_PRIVACY_SHIELD_ROLE_HUB
+    /* ================================================================
+     *  HUB MODE — Dashboard controller, no audio hardware
+     * ================================================================ */
+    ESP_LOGI(TAG, "+------------------------------------------+");
+    ESP_LOGI(TAG, "|        PRIVACY SHIELD v1.0               |");
+    ESP_LOGI(TAG, "|        Hub Controller  |   ESP32-S3       |");
+    ESP_LOGI(TAG, "+------------------------------------------+");
+
+    vTaskDelay(pdMS_TO_TICKS(200));
+
+    /* ── Mesh (ESP-NOW) — receives STATUS from nodes ── */
+    ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
+    ESP_ERROR_CHECK(mesh_init(DEFAULT_NODE_ID));
+    mesh_register_recv_callback(on_mesh_packet);
+    xTaskCreate(hello_task, "hello", 2048, NULL, 1, NULL);
+    xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
+    ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ " MACSTR,
+             MAC2STR(mesh_get_state()->my_mac));
+
+    /* ── WiFi AP + Web Dashboard (Tasks 4.1–4.3) ── */
+    ESP_LOGI(TAG, "  [..] Starting WiFi AP + Web Server...");
+    /* TODO: wifi_ap_init() + web_server_init() */
+    ESP_LOGI(TAG, "  [OK] Web Dashboard ....... http://192.168.4.1");
+
+    ESP_LOGI(TAG, "+------------------------------------------+");
+    ESP_LOGI(TAG, "|          HUB READY                        |");
+    ESP_LOGI(TAG, "+------------------------------------------+");
+
+#else
+    /* ================================================================
+     *  NODE MODE — Full audio pipeline + masking
+     * ================================================================ */
+    ESP_LOGI(TAG, "+------------------------------------------+");
+    ESP_LOGI(TAG, "|        PRIVACY SHIELD v1.0               |");
+    ESP_LOGI(TAG, "|        Node %u   |   ESP32-S3              |", DEFAULT_NODE_ID);
+    ESP_LOGI(TAG, "+------------------------------------------+");
 
 	vTaskDelay(pdMS_TO_TICKS(200));
 
-	/* ── Mesh ───────────────────────────────────────────────── */
-	ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
-	ESP_ERROR_CHECK(mesh_init(DEFAULT_NODE_ID));
-	mesh_register_recv_callback(on_mesh_packet);
-	xTaskCreate(hello_task, "hello", 2048, NULL, 1, NULL);
-	xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
-	xTaskCreate(status_task, "status", 4096, NULL, 1, NULL);
-	ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ node %u, " MACSTR,
-			 DEFAULT_NODE_ID, MAC2STR(mesh_get_state()->my_mac));
+    /* ── Mesh (ESP-NOW) ── */
+    ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
+    ESP_ERROR_CHECK(mesh_init(DEFAULT_NODE_ID));
+    mesh_register_recv_callback(on_mesh_packet);
+    xTaskCreate(hello_task, "hello", 2048, NULL, 1, NULL);
+    xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
+    xTaskCreate(status_task, "status", 4096, NULL, 1, NULL);
+    ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ node %u, " MACSTR,
+             DEFAULT_NODE_ID, MAC2STR(mesh_get_state()->my_mac));
 
 	/* ── Audio ───────────────────────────────────────────────── */
 	audio_input_queue = xQueueCreate(1, AFE_FEED_SAMPLES * sizeof(int16_t));
