@@ -8,19 +8,19 @@
 extern "C" {
 #endif
 
-#define AFE_FEED_SAMPLES 160 // Number of raw data samples for Audio Queue
+#define AFE_FEED_SAMPLES 512 // Number of raw data samples for Audio Queue
 
 typedef enum {
-  AUDIO_AFE_VAD_SILENCE = 0,
-  AUDIO_AFE_VAD_SPEECH,
-  AUDIO_AFE_VAD_UNKNOWN,
+	AUDIO_AFE_VAD_SILENCE = 0,
+	AUDIO_AFE_VAD_SPEECH,
+	AUDIO_AFE_VAD_UNKNOWN,
 } audio_afe_vad_state_t;
 
 typedef struct {
-  int16_t *data;
-  int samples;
-  int channels;
-  audio_afe_vad_state_t vad_state;
+	int16_t *data;
+	int samples;
+	int channels;
+	audio_afe_vad_state_t vad_state;
 } audio_afe_result_t;
 
 /**
