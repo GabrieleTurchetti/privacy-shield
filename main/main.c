@@ -5,6 +5,7 @@
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -233,8 +234,12 @@ void app_main(void) {
 
 	xTaskCreatePinnedToCore(audio_hal_mic_read_task, "Mic_Read", 4096, NULL, 5,
 							NULL, 1);
-	xTaskCreatePinnedToCore(afe_processing_task, "AFE_Proc", 8192, NULL, 5,
+	xTaskCreatePinnedToCore(&audio_afe_feed, "AFE_FEED_TASK", 8192, NULL, 5,
 							NULL, 0);
+	xTaskCreatePinnedToCore(&audio_afe_fetch, "AFE_FETCH_TASK", 8192, NULL, 5,
+							NULL, 0);
+	// xTaskCreatePinnedToCore(audio_afe_task, "AFE_TASK", 16384, NULL, 5, NULL,
+	// 						0);
 
 	ESP_LOGI(TAG, "  [OK] Tasks spawned ....... Mic_Read (Core 1, Pri 5)");
 	ESP_LOGI(TAG, "                          . AFE_Proc (Core 0, Pri 5)");
