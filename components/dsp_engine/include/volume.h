@@ -12,16 +12,15 @@ extern "C" {
 /* -------------------------------------------------------------------------- */
 
 typedef struct {
-	float current;		 /* Smoothed volume level (0.0 = mute, 1.0 = full) */
-	float attack_coeff;	 /* Ramp-up speed   (e.g. 0.02 = 50ms attack)      */
-	float release_coeff; /* Ramp-down speed (e.g. 0.002 = 500ms release)   */
-	float noise_floor;	 /* RMS below this = silence (calibrate at boot)    */
+    float current;      /* Smoothed volume level (0.0 = mute, 1.0 = full) */
+    float attack_coeff; /* Ramp-up speed   (e.g. 0.02 = 50ms attack)      */
+    float release_coeff;/* Ramp-down speed (e.g. 0.002 = 500ms release)   */
+    float noise_floor;  /* RMS below this = silence (calibrate at boot)    */
 } volume_state_t;
 
-#define DEFAULT_NOISE_FLOOR 0.0f /* Initial guess for noise floor RMS */
-#define MAX_RMS                                                                \
-	5000.0f /* RMS that maps to full volume (1.0) - Basically it's             \
-			   sensibility*/
+
+#define DEFAULT_NOISE_FLOOR 500.0f  /* Initial guess for noise floor RMS */
+#define MAX_RMS 2500.0f              /* RMS that maps to full volume (1.0) - Basically it's sensibility*/
 
 /* -------------------------------------------------------------------------- */
 /*  API                                                                       */
@@ -30,7 +29,7 @@ typedef struct {
 /**
  * @brief Initialize a volume state with default attack/release.
  *
- * Default: 50ms attack, 500ms release, noise_floor=2000.
+ * Default: 10ms attack, 100ms release, noise_floor=500.
  * Call once at boot.
  */
 void volume_init(volume_state_t *vol);
@@ -110,9 +109,9 @@ void apply_volume(int16_t *buffer, int count, float level);
  * @param masking_active  [OUT] set to true if speech is detected
  * @return uint8_t    current volume 0–100 (for STATUS packet)
  */
-uint8_t volume_process_frame(volume_state_t *vol, const int16_t *mic_in,
-							 int16_t *noise_out, int count,
-							 bool *masking_active);
+uint8_t volume_process_frame(volume_state_t *vol,
+                             const int16_t *mic_in, int16_t *noise_out,
+                             int count, bool *masking_active);
 
 #ifdef __cplusplus
 }
