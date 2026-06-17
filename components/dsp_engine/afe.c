@@ -204,28 +204,28 @@ void audio_afe_feed(void *pvParameters) {
 	while (1) {
 
 		// Wait indefinitely until a raw mic chunk arrives from Core 1
-		if (feed_bytes == 0) {
+		// if (feed_bytes == 0) {
 
-			if (xQueueReceive(audio_input_queue, microphone_buffer,
-							  portMAX_DELAY) == pdTRUE) {
+		if (xQueueReceive(audio_input_queue, microphone_buffer,
+						  portMAX_DELAY) == pdTRUE) {
 
-				for (int i = 0; i < feed_chunksize; i++) {
-					feed_buffer[2 * i] = microphone_buffer[i];
-					feed_buffer[2 * i + 1] = speaker_buffer[i];
-				}
-
-				// 1. Feed the 16-bit PCM block into the ESP Front End Engine
-				for (int i = 0; i < feed_chunksize * feed_channels; i++) {
-					int16_t pcm = feed_buffer[i];
-					int ret = afe_handle->feed(afe_data, &pcm);
-
-					if (ret < 0) {
-						ESP_LOGE(TAG, "AFE feed returned: %d", ret);
-					}
-				}
-				feed_bytes += AFE_FEED_SAMPLES;
+			for (int i = 0; i < feed_chunksize; i++) {
+				feed_buffer[2 * i] = microphone_buffer[i];
+				feed_buffer[2 * i + 1] = speaker_buffer[i];
 			}
+
+			// 1. Feed the 16-bit PCM block into the ESP Front End Engine
+			for (int i = 0; i < feed_chunksize * feed_channels; i++) {
+				int16_t pcm = feed_buffer[i];
+				int ret = afe_handle->feed(afe_data, &pcm);
+
+				if (ret < 0) {
+					ESP_LOGE(TAG, "AFE feed returned: %d", ret);
+				}
+			}
+			// feed_bytes += AFE_FEED_SAMPLES;
 		}
+		// }
 		vTaskDelay(pdMS_TO_TICKS(1));
 	}
 }
@@ -248,72 +248,69 @@ void audio_afe_fetch(void *pvParameters) {
 			return;
 		}
 
-		if (feed_bytes >= AFE_FEED_SAMPLES) {
+		// if (feed_bytes >= AFE_FEED_SAMPLES) {
 
-			afe_fetch_result_t *result = afe_handle->fetch(afe_data);
-			feed_bytes -= AFE_FEED_SAMPLES;
+		afe_fetch_result_t *result = afe_handle->fetch(afe_data);
+		// feed_bytes -= AFE_FEED_SAMPLES;
 
-			if (result == NULL) {
-				ESP_LOGE(TAG, "AFE fetch returned NULL");
-			}
+		if (result == NULL) {
+			ESP_LOGE(TAG, "AFE fetch returned NULL");
+		}
 
-			if (result->ret_value == ESP_FAIL) {
-				ESP_LOGE(TAG, "AFE fetch failed");
-			}
+		if (result->ret_value == ESP_FAIL) {
+			ESP_LOGE(TAG, "AFE fetch failed");
+		}
 
-			if (result != NULL && result->ret_value == ESP_OK) {
-				audio_afe_vad_state_t state =
-					convert_vad_state(result->vad_state);
-				if (state != AFE_STATE) {
-					if (state == AUDIO_AFE_VAD_SPEECH) {
-						ESP_LOGI(TAG, "[VAD] Speech detected!");
-					} else if (state == AUDIO_AFE_VAD_SILENCE) {
-						ESP_LOGI(TAG, "[VAD] Silence...");
-					} else {
-						ESP_LOGW(TAG, "[VAD] Unknown VAD state.");
-					}
-
-					AFE_STATE = result->vad_state;
-				}
-
-				/*if (frame_count < 32) {
-					calibration_sum += compute_rms(mic_frame, AFE_FEED_SAMPLES);
-					frame_count++;
-					if (frame_count == 32) {
-						volume_calibrate(&vol_state, calibration_sum / 32.0f);
-						ESP_LOGI(TAG, "Volume calibrated — noise floor: %.0f
-				RMS", vol_state.noise_floor);
-					}
-					continue;  // skip processing during calibration
-				}*/
-
-				noise_gen_fill(speaker_buffer, AFE_FEED_SAMPLES);
-				bool masking;
-				uint8_t volume_pct = 0;
-				if (AFE_STATE == AUDIO_AFE_VAD_SPEECH) {
-					// Someone talking — normal volume from RMS
-					volume_pct = volume_process_frame(
-						&vol_state, microphone_buffer, speaker_buffer,
-						AFE_FEED_SAMPLES, &masking);
+		if (result != NULL && result->ret_value == ESP_OK) {
+			audio_afe_vad_state_t state = convert_vad_state(result->vad_state);
+			if (state != AFE_STATE) {
+				if (state == AUDIO_AFE_VAD_SPEECH) {
+					ESP_LOGI(TAG, "[VAD] Speech detected!");
+				} else if (state == AUDIO_AFE_VAD_SILENCE) {
+					ESP_LOGI(TAG, "[VAD] Silence...");
 				} else {
-					// Silence — force ramp to zero
-					float level = volume_ramp(&vol_state, 0.0f);
-					apply_volume(speaker_buffer, AFE_FEED_SAMPLES, level);
-					masking = false;
-				}
-				if (abs(volume_pct - last_volume) >= 5) {
-					if (masking) {
-						ESP_LOGI(TAG, "Masking active — volume %u%%",
-								 volume_pct);
-					} else {
-						ESP_LOGI(TAG, "Masking inactive — volume %u%%",
-								 volume_pct);
-					}
-					last_volume = volume_pct;
+					ESP_LOGW(TAG, "[VAD] Unknown VAD state.");
 				}
 
-				xQueueSend(audio_output_queue, speaker_buffer, portMAX_DELAY);
+				AFE_STATE = result->vad_state;
 			}
+
+			/*if (frame_count < 32) {
+				calibration_sum += compute_rms(mic_frame, AFE_FEED_SAMPLES);
+				frame_count++;
+				if (frame_count == 32) {
+					volume_calibrate(&vol_state, calibration_sum / 32.0f);
+					ESP_LOGI(TAG, "Volume calibrated — noise floor: %.0f
+			RMS", vol_state.noise_floor);
+				}
+				continue;  // skip processing during calibration
+			}*/
+
+			noise_gen_fill(speaker_buffer, AFE_FEED_SAMPLES);
+			bool masking;
+			uint8_t volume_pct = 0;
+			if (AFE_STATE == AUDIO_AFE_VAD_SPEECH) {
+				// Someone talking — normal volume from RMS
+				volume_pct = volume_process_frame(&vol_state, microphone_buffer,
+												  speaker_buffer,
+												  AFE_FEED_SAMPLES, &masking);
+			} else {
+				// Silence — force ramp to zero
+				float level = volume_ramp(&vol_state, 0.0f);
+				apply_volume(speaker_buffer, AFE_FEED_SAMPLES, level);
+				masking = false;
+			}
+			if (abs(volume_pct - last_volume) >= 5) {
+				if (masking) {
+					ESP_LOGI(TAG, "Masking active — volume %u%%", volume_pct);
+				} else {
+					ESP_LOGI(TAG, "Masking inactive — volume %u%%", volume_pct);
+				}
+				last_volume = volume_pct;
+			}
+
+			xQueueSend(audio_output_queue, speaker_buffer, portMAX_DELAY);
+			// }
 		}
 	}
 }
