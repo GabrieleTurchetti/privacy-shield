@@ -177,8 +177,8 @@ void app_main(void) {
 
 	/* ── Header ──────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "+------------------------------------------+");
-	ESP_LOGI(TAG, "|        PRIVACY SHIELD v1.0               |");
-	ESP_LOGI(TAG, "|        Node %u   |   ESP32-S3              |",
+	ESP_LOGI(TAG, "|        PRIVACY SHIELD v0.300             |");
+	ESP_LOGI(TAG, "|        Node %u   |   ESP32-S3            |",
 			 DEFAULT_NODE_ID);
 	ESP_LOGI(TAG, "+------------------------------------------+");
 
@@ -194,17 +194,7 @@ void app_main(void) {
 	ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ node %u, " MACSTR,
 			 DEFAULT_NODE_ID, MAC2STR(mesh_get_state()->my_mac));
 
-	/* ── AFE ────────────────────────────────────────────────── */
-	ESP_LOGI(TAG, "  [..] Initializing AFE Pipeline...");
-	esp_err_t afe_err = audio_afe_init("MR");
-	if (afe_err != ESP_OK) {
-		ESP_LOGE(TAG, "  [!!] AFE Initialization failed!");
-		return;
-	}
-	ESP_LOGI(TAG,
-			 "  [OK] AFE Pipeline ........ VADNet1 Medium, %d samples/chunk",
-			 AFE_FEED_SAMPLES);
-
+	/* ── Audio ───────────────────────────────────────────────── */
 	audio_input_queue = xQueueCreate(1, AFE_FEED_SAMPLES * sizeof(int16_t));
 	if (audio_input_queue == NULL) {
 		ESP_LOGE(TAG, "  [!!] Audio queue creation failed!");
@@ -216,7 +206,7 @@ void app_main(void) {
 		return;
 	}
 
-	/* ── Audio ──────────────────────────────────────────────── */
+	/* ── Micriophone ──────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "  [..] Initializing I2S Microphone...");
 	esp_err_t mic_init = audio_hal_mic_init();
 	if (mic_init != ESP_OK) {
@@ -232,14 +222,22 @@ void app_main(void) {
 							  // continues.
 	ESP_LOGI(TAG, "  [OK] I2S Amplifier ...... 16 kHz, 32-bit, Mono");
 
+	/* ── AFE ────────────────────────────────────────────────── */
+	ESP_LOGI(TAG, "  [..] Initializing AFE Pipeline...");
+	esp_err_t afe_err = audio_afe_init("MR");
+	if (afe_err != ESP_OK) {
+		ESP_LOGE(TAG, "  [!!] AFE Initialization failed!");
+		return;
+	}
+	ESP_LOGI(TAG,
+			 "  [OK] AFE Pipeline ........ VADNet1 Medium, %d samples/chunk",
+			 AFE_FEED_SAMPLES);
 	xTaskCreatePinnedToCore(audio_hal_mic_read_task, "Mic_Read", 4096, NULL, 5,
 							NULL, 1);
 	xTaskCreatePinnedToCore(&audio_afe_feed, "AFE_FEED_TASK", 8192, NULL, 5,
 							NULL, 0);
 	xTaskCreatePinnedToCore(&audio_afe_fetch, "AFE_FETCH_TASK", 8192, NULL, 5,
 							NULL, 0);
-	// xTaskCreatePinnedToCore(audio_afe_task, "AFE_TASK", 16384, NULL, 5, NULL,
-	// 						0);
 
 	ESP_LOGI(TAG, "  [OK] Tasks spawned ....... Mic_Read (Core 1, Pri 5)");
 	ESP_LOGI(TAG, "                          . AFE_Proc (Core 0, Pri 5)");
@@ -248,11 +246,12 @@ void app_main(void) {
 #if defined(CONFIG_PRIVACY_SHIELD_BUILD_DEBUG) &&                              \
 	defined(CONFIG_PRIVACY_SHIELD_LOG_AUDIO)
 	// Launch FreeRTOS tasks
-	xTaskCreate(audio_hal_speaker_task, "sine_wave_task", 4096, NULL, 5, NULL);
+	// xTaskCreate(audio_hal_speaker_task, "sine_wave_task", 4096, NULL, 5,
+	// NULL);
 #endif
 
 	/* ── Footer ─────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "+------------------------------------------+");
-	ESP_LOGI(TAG, "|      SYSTEM READY! Running v0.301        |");
+	ESP_LOGI(TAG, "|      SYSTEM READY! Running v0.300        |");
 	ESP_LOGI(TAG, "+------------------------------------------+");
 }

@@ -204,26 +204,28 @@ void audio_afe_feed(void *pvParameters) {
 	while (1) {
 
 		// Wait indefinitely until a raw mic chunk arrives from Core 1
-		if (xQueueReceive(audio_input_queue, microphone_buffer,
-						  portMAX_DELAY) == pdTRUE) {
+		if (feed_bytes == 0) {
 
-			for (int i = 0; i < feed_chunksize; i++) {
-				feed_buffer[2 * i] = microphone_buffer[i];
-				feed_buffer[2 * i + 1] = speaker_buffer[i];
-			}
+			if (xQueueReceive(audio_input_queue, microphone_buffer,
+							  portMAX_DELAY) == pdTRUE) {
 
-			// 1. Feed the 16-bit PCM block into the ESP Front End Engine
-			for (int i = 0; i < feed_chunksize * feed_channels; i++) {
-				int16_t pcm = feed_buffer[i];
-				int ret = afe_handle->feed(afe_data, &pcm);
-
-				if (ret < 0) {
-					ESP_LOGE(TAG, "AFE feed returned: %d", ret);
+				for (int i = 0; i < feed_chunksize; i++) {
+					feed_buffer[2 * i] = microphone_buffer[i];
+					feed_buffer[2 * i + 1] = speaker_buffer[i];
 				}
-			}
-			feed_bytes += AFE_FEED_SAMPLES
-		}
 
+				// 1. Feed the 16-bit PCM block into the ESP Front End Engine
+				for (int i = 0; i < feed_chunksize * feed_channels; i++) {
+					int16_t pcm = feed_buffer[i];
+					int ret = afe_handle->feed(afe_data, &pcm);
+
+					if (ret < 0) {
+						ESP_LOGE(TAG, "AFE feed returned: %d", ret);
+					}
+				}
+				feed_bytes += AFE_FEED_SAMPLES;
+			}
+		}
 		vTaskDelay(pdMS_TO_TICKS(1));
 	}
 }
@@ -259,8 +261,7 @@ void audio_afe_fetch(void *pvParameters) {
 				ESP_LOGE(TAG, "AFE fetch failed");
 			}
 
-			if (result != NULL && result->ret_value == ESP_OK &&
-				result->ringbuff_free_pct < 0.5) {
+			if (result != NULL && result->ret_value == ESP_OK) {
 				audio_afe_vad_state_t state =
 					convert_vad_state(result->vad_state);
 				if (state != AFE_STATE) {
