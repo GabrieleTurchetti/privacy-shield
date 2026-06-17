@@ -56,10 +56,10 @@ static void espnow_recv_cb(const esp_now_recv_info_t *recv_info,
 }
 
 /* -------------------------------------------------------------------------- */
-/*  WiFi initialization (station mode — required for ESP-NOW)                 */
+/*  WiFi initialization (required for ESP-NOW)                                */
 /* -------------------------------------------------------------------------- */
 
-static esp_err_t wifi_init(void) {
+static esp_err_t wifi_init(wifi_mode_t wifi_mode) {
     /* NVS flash must be initialized for WiFi to store calibration data */
     esp_err_t ret = nvs_flash_init(); //Non-Volatible Storage
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
@@ -74,11 +74,19 @@ static esp_err_t wifi_init(void) {
     ESP_ERROR_CHECK(esp_event_loop_create_default()); //system for passing messages
     /* ---------------- */
 
-    /* Minimal WiFi init — we just need the radio, not an actual network */
+    /* WiFi init — ESP-NOW needs the radio, works with any WiFi mode */
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA)); //Station mode
+
+    if (wifi_mode == WIFI_MODE_AP) {
+        esp_netif_create_default_wifi_ap();
+        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+    } else {
+        esp_netif_create_default_wifi_sta();
+        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    }
+
     ESP_ERROR_CHECK(esp_wifi_start()); //powers up the antenna
 
     /* Set a long-term PM policy — ESP-NOW needs the radio on.
@@ -92,14 +100,14 @@ static esp_err_t wifi_init(void) {
 /*  Public API                                                                */
 /* -------------------------------------------------------------------------- */
 
-esp_err_t mesh_init(uint8_t node_id) {
+esp_err_t mesh_init(uint8_t node_id, wifi_mode_t wifi_mode) {
     if (s_mesh.initialized) {
         ESP_LOGW(TAG, "Mesh already initialized");
         return ESP_OK;
     }
 
     /* 1. Bring up WiFi (needed for ESP-NOW radio) */
-    ESP_ERROR_CHECK(wifi_init());
+    ESP_ERROR_CHECK(wifi_init(wifi_mode));
 
     /* 2. Initialize ESP-NOW */
     ESP_ERROR_CHECK(esp_now_init());
@@ -119,7 +127,9 @@ esp_err_t mesh_init(uint8_t node_id) {
     esp_now_add_peer(&broadcast_peer);
 
     /* 5. Get our own MAC */
-    ESP_ERROR_CHECK(esp_wifi_get_mac(WIFI_IF_STA, s_mesh.my_mac));
+    ESP_ERROR_CHECK(esp_wifi_get_mac(
+        wifi_mode == WIFI_MODE_AP ? WIFI_IF_AP : WIFI_IF_STA,
+        s_mesh.my_mac));
 
     /* 6. Fill in our state */
     s_mesh.my_id = node_id;

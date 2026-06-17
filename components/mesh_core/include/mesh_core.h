@@ -113,10 +113,12 @@ typedef struct {
 /**
  * @brief Initialize ESP-NOW and start the mesh.
  *
- * @param node_id  Unique ID for this node (0 = hub, 1-254 = masking nodes).
+ * @param node_id    Unique ID for this node (0 = hub, 1-254 = masking nodes).
+ * @param wifi_mode  WiFi mode for the underlying radio (WIFI_MODE_STA for nodes,
+ *                   WIFI_MODE_AP for the Hub). ESP-NOW coexists with either.
  * @return ESP_OK on success.
  */
-esp_err_t mesh_init(uint8_t node_id);
+esp_err_t mesh_init(uint8_t node_id, wifi_mode_t wifi_mode);
 
 /**
  * @brief Send a raw payload to a specific MAC address.

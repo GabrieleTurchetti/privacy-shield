@@ -4,6 +4,7 @@
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_mac.h"
+#include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
@@ -13,6 +14,7 @@
 #include "log_tags.h"
 #include "mesh_core.h"
 #include "sdkconfig.h"
+#include "web_dashboard.h"
 #include <stdio.h>
 
 static const char *TAG = LOG_TAG_MAIN;
@@ -145,6 +147,9 @@ static void on_mesh_packet(const uint8_t *src_mac, const void *data, size_t len)
                 ESP_LOGI(LOG_TAG_DISCOVERY, "STATUS from node %u: masking=%s vol=%u batt=%u%%",
                          status->header.src_id, status->masking_active ? "ON" : "OFF",
                          status->volume, status->battery_pct);
+#ifdef CONFIG_PRIVACY_SHIELD_ROLE_HUB
+                web_dashboard_update_status(status, src_mac);
+#endif
             }
             break;
 
@@ -183,7 +188,7 @@ void app_main(void) {
 
     /* ── Mesh (ESP-NOW) — receives STATUS from nodes ── */
     ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
-    ESP_ERROR_CHECK(mesh_init(DEFAULT_NODE_ID));
+    ESP_ERROR_CHECK(mesh_init(DEFAULT_NODE_ID, WIFI_MODE_AP));
     mesh_register_recv_callback(on_mesh_packet);
     xTaskCreate(hello_task, "hello", 2048, NULL, 1, NULL);
     xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
@@ -192,7 +197,8 @@ void app_main(void) {
 
     /* ── WiFi AP + Web Dashboard (Tasks 4.1–4.3) ── */
     ESP_LOGI(TAG, "  [..] Starting WiFi AP + Web Server...");
-    /* TODO: wifi_ap_init() + web_server_init() */
+    ESP_ERROR_CHECK(wifi_ap_init());
+    ESP_ERROR_CHECK(web_server_init());
     ESP_LOGI(TAG, "  [OK] Web Dashboard ....... http://192.168.4.1");
 
     ESP_LOGI(TAG, "+------------------------------------------+");
@@ -210,9 +216,9 @@ void app_main(void) {
 
 	vTaskDelay(pdMS_TO_TICKS(200));
 
-    /* ── Mesh (ESP-NOW) ── */
+    /* ── Mesh (ESP-NOW) — receives STATUS from nodes ── */
     ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
-    ESP_ERROR_CHECK(mesh_init(DEFAULT_NODE_ID));
+    ESP_ERROR_CHECK(mesh_init(DEFAULT_NODE_ID, WIFI_MODE_STA));
     mesh_register_recv_callback(on_mesh_packet);
     xTaskCreate(hello_task, "hello", 2048, NULL, 1, NULL);
     xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
