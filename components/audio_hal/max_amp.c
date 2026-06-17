@@ -1,3 +1,4 @@
+#include "afe.h"
 #include "audio_hal.h" // For function signatures
 #include "driver/i2s_std.h"
 #include "esp_log.h"

@@ -10,9 +10,6 @@
 
 #define SPK_SAMPLE_RATE 16000
 
-// TODO: This is a duplicate of the same define in afe.h. Fix this
-#define AFE_FEED_SAMPLES 512 // Number of raw data samples for Audio Queue
-
 // Initialize the I2S microphone hardware
 esp_err_t audio_hal_mic_init(void);
 

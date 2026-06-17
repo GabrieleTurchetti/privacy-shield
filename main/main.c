@@ -177,7 +177,7 @@ void app_main(void) {
 
 	/* ── Header ──────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "+------------------------------------------+");
-	ESP_LOGI(TAG, "|        PRIVACY SHIELD v0.300             |");
+	ESP_LOGI(TAG, "|        PRIVACY SHIELD v0.301             |");
 	ESP_LOGI(TAG, "|        Node %u   |   ESP32-S3            |",
 			 DEFAULT_NODE_ID);
 	ESP_LOGI(TAG, "+------------------------------------------+");
@@ -234,23 +234,25 @@ void app_main(void) {
 			 AFE_FEED_SAMPLES);
 	xTaskCreatePinnedToCore(audio_hal_mic_read_task, "Mic_Read", 4096, NULL, 5,
 							NULL, 1);
-	xTaskCreatePinnedToCore(&audio_afe_feed, "AFE_FEED_TASK", 8192, NULL, 5,
-							NULL, 0);
-	xTaskCreatePinnedToCore(&audio_afe_fetch, "AFE_FETCH_TASK", 8192, NULL, 5,
-							NULL, 0);
 
-	ESP_LOGI(TAG, "  [OK] Tasks spawned ....... Mic_Read (Core 1, Pri 5)");
-	ESP_LOGI(TAG, "                          . AFE_Proc (Core 0, Pri 5)");
-	ESP_LOGI(TAG, "                          . hello + prune (Core 0, Pri 1)");
+	vTaskDelay(pdMS_TO_TICKS(1));
 
 #if defined(CONFIG_PRIVACY_SHIELD_BUILD_DEBUG) &&                              \
 	defined(CONFIG_PRIVACY_SHIELD_LOG_AUDIO)
 	// Launch FreeRTOS tasks
-	xTaskCreate(audio_hal_speaker_task, "sine_wave_task", 4096, NULL, 5, NULL);
+	xTaskCreate(audio_hal_speaker_task, "SPEAKER_TASK", 4096, NULL, 5, NULL);
 #endif
+
+	xTaskCreatePinnedToCore(&audio_afe_feed, "AFE_TASK", 4096, NULL, 5, NULL,
+							0);
+	xTaskCreatePinnedToCore(audio_afe_fetch, "AFE_FETCH_TASK", 4096, NULL, 5,
+							NULL, 1);
+	ESP_LOGI(TAG, "  [OK] Tasks spawned ....... Mic_Read (Core 1, Pri 5)");
+	ESP_LOGI(TAG, "                          . AFE_Proc (Core 0, Pri 5)");
+	ESP_LOGI(TAG, "                          . hello + prune (Core 0, Pri 1)");
 
 	/* ── Footer ─────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "+------------------------------------------+");
-	ESP_LOGI(TAG, "|      SYSTEM READY! Running v0.300        |");
+	ESP_LOGI(TAG, "|      SYSTEM READY! Running v0.301        |");
 	ESP_LOGI(TAG, "+------------------------------------------+");
 }

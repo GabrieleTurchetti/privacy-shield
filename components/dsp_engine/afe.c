@@ -36,7 +36,7 @@ static int feed_channels = 0;
 static int fetch_chunksize = 0;
 static int fetch_channels = 0;
 static audio_afe_vad_state_t AFE_STATE;
-static int feed_bytes = 0;
+// static int feed_bytes = 0;
 
 static int16_t *microphone_buffer;
 static int16_t *speaker_buffer;
@@ -197,15 +197,11 @@ void audio_afe_feed(void *pvParameters) {
 	}
 
 	// Inital values for speaker buffer for purposes of AEC
-	for (int i = 0; i < feed_chunksize; i++) {
+	for (int i = 0; i < AFE_FEED_SAMPLES; i++) {
 		speaker_buffer[i] = (int16_t)0;
 	}
 
 	while (1) {
-
-		// Wait indefinitely until a raw mic chunk arrives from Core 1
-		// if (feed_bytes == 0) {
-
 		if (xQueueReceive(audio_input_queue, microphone_buffer,
 						  portMAX_DELAY) == pdTRUE) {
 
@@ -214,26 +210,27 @@ void audio_afe_feed(void *pvParameters) {
 				feed_buffer[2 * i + 1] = speaker_buffer[i];
 			}
 
-			// 1. Feed the 16-bit PCM block into the ESP Front End Engine
-			for (int i = 0; i < feed_chunksize * feed_channels; i++) {
-				int16_t pcm = feed_buffer[i];
-				int ret = afe_handle->feed(afe_data, &pcm);
+			// 1. Feed the 16-bit block into the ESP Front End Engine
 
-				if (ret < 0) {
-					ESP_LOGE(TAG, "AFE feed returned: %d", ret);
-				}
+			int ret = afe_handle->feed(afe_data, feed_buffer);
+
+			if (ret < 0) {
+				ESP_LOGE(TAG, "AFE feed returned: %d", ret);
 			}
-			// feed_bytes += AFE_FEED_SAMPLES;
+
+			vTaskDelay(pdMS_TO_TICKS(1));
 		}
-		// }
-		vTaskDelay(pdMS_TO_TICKS(1));
 	}
 }
 
 void audio_afe_fetch(void *pvParameters) {
-
-	ESP_LOGI(TAG, "AFE fetch processing task started on Core %d",
+	ESP_LOGI(TAG, "AFE feed processing task started on Core %d",
 			 xPortGetCoreID());
+
+	if (afe_handle == NULL || afe_data == NULL) {
+		ESP_LOGE(TAG, "Uninitialized AFE_HANDLER or AFE_DATA");
+		return;
+	}
 	volume_state_t vol_state;
 	volume_init(&vol_state);
 	noise_gen_init(NOISE_TYPE_PINK);
@@ -242,16 +239,7 @@ void audio_afe_fetch(void *pvParameters) {
 
 	while (1) {
 
-		// vTaskDelay(pdMS_TO_TICKS(5));
-		if (afe_handle == NULL || afe_data == NULL) {
-			ESP_LOGE(TAG, "Uninitialized AFE_HANDLER or AFE_DATA");
-			return;
-		}
-
-		// if (feed_bytes >= AFE_FEED_SAMPLES) {
-
 		afe_fetch_result_t *result = afe_handle->fetch(afe_data);
-		// feed_bytes -= AFE_FEED_SAMPLES;
 
 		if (result == NULL) {
 			ESP_LOGE(TAG, "AFE fetch returned NULL");
@@ -275,20 +263,10 @@ void audio_afe_fetch(void *pvParameters) {
 				AFE_STATE = result->vad_state;
 			}
 
-			/*if (frame_count < 32) {
-				calibration_sum += compute_rms(mic_frame, AFE_FEED_SAMPLES);
-				frame_count++;
-				if (frame_count == 32) {
-					volume_calibrate(&vol_state, calibration_sum / 32.0f);
-					ESP_LOGI(TAG, "Volume calibrated — noise floor: %.0f
-			RMS", vol_state.noise_floor);
-				}
-				continue;  // skip processing during calibration
-			}*/
-
 			noise_gen_fill(speaker_buffer, AFE_FEED_SAMPLES);
 			bool masking;
 			uint8_t volume_pct = 0;
+
 			if (AFE_STATE == AUDIO_AFE_VAD_SPEECH) {
 				// Someone talking — normal volume from RMS
 				volume_pct = volume_process_frame(&vol_state, microphone_buffer,
@@ -310,8 +288,9 @@ void audio_afe_fetch(void *pvParameters) {
 			}
 
 			xQueueSend(audio_output_queue, speaker_buffer, portMAX_DELAY);
-			// }
 		}
+
+		vTaskDelay(pdMS_TO_TICKS(1));
 	}
 }
 
@@ -331,10 +310,4 @@ void audio_afe_destroy(void) {
 	fetch_channels = 0;
 
 	ESP_LOGI(TAG, "AFE destroyed");
-}
-
-void audio_afe_task(void *pvParameters) {
-
-	audio_afe_feed(pvParameters);
-	audio_afe_fetch(pvParameters);
 }

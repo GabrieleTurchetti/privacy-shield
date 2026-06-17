@@ -102,7 +102,7 @@ void audio_hal_mic_read_task(void *pvParameters) {
 
 			if (packet_count < 2000) {
 				if (delta_ms > 35) {
-					ESP_LOGE(TAG, "Underrun detected! Frame took %d ms",
+					ESP_LOGW(TAG, "Underrun detected! Frame took %d ms",
 							 delta_ms);
 				} else {
 					if (packet_count % 50 == 0) {
