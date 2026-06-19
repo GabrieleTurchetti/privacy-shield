@@ -67,6 +67,8 @@ void audio_afe_fetch(void *pvParameters);
  * */
 void audio_afe_destroy(void);
 
+void audio_afe_task(void *pvParameters);
+
 #ifdef __cplusplus
 }
 #endif
