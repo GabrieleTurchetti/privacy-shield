@@ -12,6 +12,7 @@
 #include "global_config.h"
 #include "log_tags.h"
 #include "mesh_core.h"
+#include "battery.h"
 #include "sdkconfig.h"
 #include <stdio.h>
 
@@ -71,6 +72,12 @@ static void log_levels_init(void) {
     esp_log_level_set(LOG_TAG_WEB, ESP_LOG_DEBUG);
 #else
     esp_log_level_set(LOG_TAG_WEB, ESP_LOG_WARN);
+#endif
+
+#ifdef CONFIG_PRIVACY_SHIELD_LOG_BATTERY
+    esp_log_level_set(LOG_TAG_BATTERY, ESP_LOG_INFO);
+#else
+    esp_log_level_set(LOG_TAG_BATTERY, ESP_LOG_INFO);
 #endif
 
 	/* Main always at INFO */
@@ -232,6 +239,11 @@ void app_main(void) {
 
 	vTaskDelay(pdMS_TO_TICKS(1));
 
+		/* ── Battery ──────────────────────────────────────────────── */
+	battery_init();
+	xTaskCreatePinnedToCore(battery_logger_task, "battery_logger_task", 4096, NULL, 5, NULL, 1);
+		vTaskDelay(pdMS_TO_TICKS(10));
+
 #if defined(CONFIG_PRIVACY_SHIELD_BUILD_DEBUG) &&                              \
 	defined(CONFIG_PRIVACY_SHIELD_LOG_AUDIO)
 	// Launch FreeRTOS tasks
@@ -245,6 +257,11 @@ void app_main(void) {
 	ESP_LOGI(TAG, "  [OK] Tasks spawned ....... Mic_Read (Core 1, Pri 5)");
 	ESP_LOGI(TAG, "                          . AFE_Proc (Core 0, Pri 5)");
 	ESP_LOGI(TAG, "                          . hello + prune (Core 0, Pri 1)");
+
+/*#if defined(CONFIG_PRIVACY_SHIELD_BUILD_DEBUG)// && defined(CONFIG_PRIVACY_SHIELD_LOG_BATTERY)
+    // Launch FreeRTOS tasks
+#endif
+*/
 
 	/* ── Footer ─────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "+------------------------------------------+");
