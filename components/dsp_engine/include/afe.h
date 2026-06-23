@@ -71,6 +71,8 @@ void audio_afe_destroy(void);
 
 void audio_afe_task(void *pvParameters);
 
+uint8_t afe_get_volume(void);
+
 #ifdef __cplusplus
 }
 #endif

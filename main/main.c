@@ -125,8 +125,8 @@ static void status_task(void *arg) {
         status.header.src_id = DEFAULT_NODE_ID;
         status.header.timestamp_ms = pdTICKS_TO_MS(xTaskGetTickCount());
         status.masking_active = is_afe_speech() /* read from VAD state */;
-        status.volume = 100 /* read from current volume */;
-        status.battery_pct = 85;  // placeholder, real sensor later
+        status.volume = afe_get_volume() /* read from current volume */;
+        status.battery_pct = battery_get_percentage();  // placeholder, real sensor later
         status.uptime_s = xTaskGetTickCount() * portTICK_PERIOD_MS / 1000;
 
         mesh_broadcast(&status, sizeof(status));
@@ -176,6 +176,7 @@ static void on_mesh_packet(const uint8_t *src_mac, const void *data, size_t len)
 void app_main(void) {
 	uart_set_baudrate(UART_NUM_0, 2000000);
 	log_levels_init();
+	battery_init();
 
 	/* ── Header ──────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "+------------------------------------------+");
@@ -239,8 +240,7 @@ void app_main(void) {
 
 	vTaskDelay(pdMS_TO_TICKS(1));
 
-		/* ── Battery ──────────────────────────────────────────────── */
-	battery_init();
+	/* ── Battery ──────────────────────────────────────────────── */
 	xTaskCreatePinnedToCore(battery_logger_task, "battery_logger_task", 4096, NULL, 5, NULL, 1);
 		vTaskDelay(pdMS_TO_TICKS(10));
 
@@ -252,11 +252,6 @@ void app_main(void) {
 	ESP_LOGI(TAG, "  [OK] Tasks spawned ....... Mic_Read (Core 1, Pri 5)");
 	ESP_LOGI(TAG, "                          . AFE_Proc (Core 0, Pri 5)");
 	ESP_LOGI(TAG, "                          . hello + prune (Core 0, Pri 1)");
-
-/*#if defined(CONFIG_PRIVACY_SHIELD_BUILD_DEBUG)// && defined(CONFIG_PRIVACY_SHIELD_LOG_BATTERY)
-    // Launch FreeRTOS tasks
-#endif
-*/
 
 	/* ── Footer ─────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "+------------------------------------------+");

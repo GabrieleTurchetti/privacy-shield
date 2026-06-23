@@ -52,20 +52,16 @@ batt_status_t battery_get_status(void) {
     return BATT_DISCHARGING; 
 }
 
-#define ADC_SAMPLES 16
+#define WINDOW_SIZE 100
+static float percentage_window[WINDOW_SIZE];
+static int window_index = 0;
 
 float battery_get_voltage(void) {
-    int32_t adc_sum = 0;
     int adc_raw = 0;
 
-    for (int i = 0; i < ADC_SAMPLES; i++) {
-        ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, BATT_ADC_CHAN, &adc_raw));
-        adc_sum += adc_raw;
-    }
+    ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, BATT_ADC_CHAN, &adc_raw));
 
-    float adc_avg = (float)adc_sum / (float)ADC_SAMPLES;
-
-    float pin_voltage = (adc_avg / 4095.0f) * 3.3f;
+    float pin_voltage = (adc_raw / 4095.0f) * 3.3f;
 
     /*
      * The battery voltage (up to 4.2V) exceeds the ESP32 ADC's 3.3V limit,
@@ -84,16 +80,25 @@ float battery_get_voltage(void) {
 
 int battery_get_percentage(void) {
     float voltage = battery_get_voltage();
+    window_index = (window_index + 1) % WINDOW_SIZE;
+    int avg_percentage = 0;
     
     // A standard LiPo is fully charged at 4.2V, and effectively empty at ~3.2V
     const float MAX_V = 4.2;
     const float MIN_V = 3.2;
 
-    if (voltage >= MAX_V) return 100;
-    if (voltage <= MIN_V) return 0;
-
     // Linear mapping from voltage to percentage
     int percentage = (int)(((voltage - MIN_V) / (MAX_V - MIN_V)) * 100.0);
+    if (voltage >= MAX_V) percentage = 100;
+    if (voltage <= MIN_V) percentage = 0;
+    percentage_window[window_index] = percentage;
+
+    for (int i = 0; i < WINDOW_SIZE; i++) {
+        avg_percentage += percentage_window[i];
+    }
+
+    percentage = avg_percentage / WINDOW_SIZE;
+
     return percentage;
 }
 
@@ -117,7 +122,7 @@ void battery_logger_task(void *pvParameters) {
         ESP_LOGI(TAG, "Status: %s | Voltage: %.2fV | Level: %d%%", 
                 status_str, voltage, percentage);
 
-        // Block the task for 10 seconds to free up CPU
-        vTaskDelay(pdMS_TO_TICKS(10000));
+        // Block the task for 1 seconds to free up CPU
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
