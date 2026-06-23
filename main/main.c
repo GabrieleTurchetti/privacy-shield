@@ -244,12 +244,7 @@ void app_main(void) {
 	xTaskCreatePinnedToCore(battery_logger_task, "battery_logger_task", 4096, NULL, 5, NULL, 1);
 		vTaskDelay(pdMS_TO_TICKS(10));
 
-#if defined(CONFIG_PRIVACY_SHIELD_BUILD_DEBUG) &&                              \
-	defined(CONFIG_PRIVACY_SHIELD_LOG_AUDIO)
-	// Launch FreeRTOS tasks
 	xTaskCreate(audio_hal_speaker_task, "SPEAKER_TASK", 4096, NULL, 5, NULL);
-#endif
-
 	xTaskCreatePinnedToCore(&audio_afe_feed, "AFE_TASK", 4096, NULL, 5, NULL,
 							0);
 	xTaskCreatePinnedToCore(audio_afe_fetch, "AFE_FETCH_TASK", 4096, NULL, 5,

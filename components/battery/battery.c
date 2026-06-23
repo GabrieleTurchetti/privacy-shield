@@ -52,16 +52,33 @@ batt_status_t battery_get_status(void) {
     return BATT_DISCHARGING; 
 }
 
+#define ADC_SAMPLES 16
+
 float battery_get_voltage(void) {
+    int32_t adc_sum = 0;
     int adc_raw = 0;
-    ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, BATT_ADC_CHAN, &adc_raw));
 
-    // Raw conversion of ESP32 ADC pin
-    float pin_voltage = ((float)adc_raw / 4095.0) * 3.3;
+    for (int i = 0; i < ADC_SAMPLES; i++) {
+        ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, BATT_ADC_CHAN, &adc_raw));
+        adc_sum += adc_raw;
+    }
 
-    // Multiply by 2.0 because our hardware voltage divider halved the signal
-    float real_battery_voltage = pin_voltage * 2.0;
-    
+    float adc_avg = (float)adc_sum / (float)ADC_SAMPLES;
+
+    float pin_voltage = (adc_avg / 4095.0f) * 3.3f;
+
+    /*
+     * The battery voltage (up to 4.2V) exceeds the ESP32 ADC's 3.3V limit,
+     * so we halved it with a voltage divider: two equal resistors (R1 = R2).
+     * The ADC reads the midpoint -> half the real value -> multiply by 2 to recover.
+     *
+     * Formula: real = pin x (R1 + R2) / R2
+     * With R1 = R2: multiplier = (R1 + R2) / R2 = 2.0
+     *
+     * If resistors differ, change the multiplier accordingly.
+     */
+    float real_battery_voltage = pin_voltage * 2.0f;
+
     return real_battery_voltage;
 }
 
