@@ -46,7 +46,7 @@ batt_status_t battery_get_status(void) {
     // MCP73833 Truth Table
     if (stat1 == 0 && stat2 == 1) return BATT_CHARGING;
     if (stat1 == 1 && stat2 == 0) return BATT_FULL;
-    if (stat1 == 0 && stat2 == 0) return BATT_ERROR;
+    if (stat1 == 0 && stat2 == 0) return BATT_CHARGING; // This state is not expected, but we treat it as charging
     
     // If both are High, the USB cable is unplugged
     return BATT_DISCHARGING; 
