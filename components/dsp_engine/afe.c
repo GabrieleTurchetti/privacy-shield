@@ -167,11 +167,11 @@ esp_err_t audio_afe_init(const char *input_format) {
 
 	// Allocating Buffers
 	microphone_buffer = (int16_t *)malloc(feed_chunksize * sizeof(int16_t));
-	feed_buffer =
-		(int16_t *)malloc(feed_chunksize * feed_channels * sizeof(int16_t));
 
 	if (valid_speaker) {
 		speaker_buffer = (int16_t *)malloc(feed_chunksize * sizeof(int16_t));
+		feed_buffer =
+			(int16_t *)malloc(feed_chunksize * feed_channels * sizeof(int16_t));
 	}
 
 	// Track VAD state change to avoid spamming the log console
@@ -206,19 +206,19 @@ void audio_afe_feed(void *pvParameters) {
 		if (xQueueReceive(audio_input_queue, microphone_buffer,
 						  portMAX_DELAY) == pdTRUE) {
 
+			int ret = 0;
 			if (valid_speaker) {
 
 				for (int i = 0; i < feed_chunksize; i++) {
 					feed_buffer[2 * i] = microphone_buffer[i];
 					feed_buffer[2 * i + 1] = speaker_buffer[i];
 				}
-			} else {
-				memcpy(feed_buffer, microphone_buffer,
-					   feed_chunksize * sizeof(int16_t));
-			}
-			// 1. Feed the 16-bit block into the ESP Front End Engine
 
-			int ret = afe_handle->feed(afe_data, feed_buffer);
+				ret = afe_handle->feed(afe_data, feed_buffer);
+
+			} else {
+				ret = afe_handle->feed(afe_data, microphone_buffer);
+			}
 
 			if (ret < 0) {
 				ESP_LOGE(TAG, "AFE feed returned: %d", ret);
