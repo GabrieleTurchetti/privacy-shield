@@ -12,6 +12,7 @@
 #include "global_config.h"
 #include "log_tags.h"
 #include "mesh_core.h"
+#include "battery.h"
 #include "sdkconfig.h"
 #include <stdio.h>
 
@@ -73,6 +74,12 @@ static void log_levels_init(void) {
     esp_log_level_set(LOG_TAG_WEB, ESP_LOG_WARN);
 #endif
 
+#ifdef CONFIG_PRIVACY_SHIELD_LOG_BATTERY
+    esp_log_level_set(LOG_TAG_BATTERY, ESP_LOG_INFO);
+#else
+    esp_log_level_set(LOG_TAG_BATTERY, ESP_LOG_INFO);
+#endif
+
 	/* Main always at INFO */
 	esp_log_level_set(LOG_TAG_MAIN, ESP_LOG_INFO);
 
@@ -118,8 +125,8 @@ static void status_task(void *arg) {
         status.header.src_id = DEFAULT_NODE_ID;
         status.header.timestamp_ms = pdTICKS_TO_MS(xTaskGetTickCount());
         status.masking_active = is_afe_speech() /* read from VAD state */;
-        status.volume = 100 /* read from current volume */;
-        status.battery_pct = 85;  // placeholder, real sensor later
+        status.volume = afe_get_volume() /* read from current volume */;
+        status.battery_pct = battery_get_percentage();  // placeholder, real sensor later
         status.uptime_s = xTaskGetTickCount() * portTICK_PERIOD_MS / 1000;
 
         mesh_broadcast(&status, sizeof(status));
@@ -169,6 +176,7 @@ static void on_mesh_packet(const uint8_t *src_mac, const void *data, size_t len)
 void app_main(void) {
 	uart_set_baudrate(UART_NUM_0, 2000000);
 	log_levels_init();
+	battery_init();
 
 #ifdef CONFIG_PRIVACY_SHIELD_ROLE_HUB
     /* ================================================================
@@ -263,12 +271,11 @@ void app_main(void) {
 
 	vTaskDelay(pdMS_TO_TICKS(1));
 
-#if defined(CONFIG_PRIVACY_SHIELD_BUILD_DEBUG) &&                              \
-	defined(CONFIG_PRIVACY_SHIELD_LOG_AUDIO)
-	// Launch FreeRTOS tasks
-	xTaskCreate(audio_hal_speaker_task, "SPEAKER_TASK", 4096, NULL, 5, NULL);
-#endif
+	/* ── Battery ──────────────────────────────────────────────── */
+	xTaskCreatePinnedToCore(battery_logger_task, "battery_logger_task", 4096, NULL, 5, NULL, 1);
+		vTaskDelay(pdMS_TO_TICKS(10));
 
+	xTaskCreate(audio_hal_speaker_task, "SPEAKER_TASK", 4096, NULL, 5, NULL);
 	xTaskCreatePinnedToCore(&audio_afe_feed, "AFE_TASK", 4096, NULL, 5, NULL,
 							0);
 	xTaskCreatePinnedToCore(audio_afe_fetch, "AFE_FETCH_TASK", 4096, NULL, 5,

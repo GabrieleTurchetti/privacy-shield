@@ -33,5 +33,7 @@
 // This falls under CONFIG_PRIVACY_SHIELD_LOG_WEB
 #define LOG_TAG_WEB         "WEB_DASHBOARD"   /* future: Hub HTTP server + API */
 
+#define LOG_TAG_BATTERY     "BATTERY"         /* future: battery monitoring system */
+
 /* ---- Main ---- */
 #define LOG_TAG_MAIN        "MAIN"
