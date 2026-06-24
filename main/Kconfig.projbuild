@@ -1,6 +1,25 @@
 menu "Privacy Shield Configuration"
 
     # =================================================================
+    #  Device Role
+    # =================================================================
+    choice PRIVACY_SHIELD_ROLE
+        prompt "Device Role"
+        default PRIVACY_SHIELD_ROLE_NODE
+        help
+            Node:  Full audio pipeline (mic + DSP + speaker) + ESP-NOW mesh.
+                   The masking device you attach to doors/windows.
+
+            Hub:   ESP-NOW mesh listener + WiFi softAP + Web dashboard.
+                   No audio hardware needed. Control all nodes from a browser.
+
+        config PRIVACY_SHIELD_ROLE_NODE
+            bool "Masking Node"
+        config PRIVACY_SHIELD_ROLE_HUB
+            bool "Hub Controller"
+    endchoice
+
+    # =================================================================
     #  Build Mode
     # =================================================================
     choice PRIVACY_SHIELD_BUILD_MODE
@@ -60,7 +79,7 @@ menu "Privacy Shield Configuration"
                 Shows calibration details, buffer reads, sample counts.
 
                 When OFF: LOG_TAG_AUDIO_AFE at WARN.
-        config CONFIG_PRIVACY_SHIELD_LOG_WEB
+        config PRIVACY_SHIELD_LOG_WEB
             bool "Web log level: Debug"
             default y
             help
@@ -68,6 +87,14 @@ menu "Privacy Shield Configuration"
                 Shows calibration details, buffer reads, sample counts.
 
                 When OFF: LOG_TAG_WEB at WARN.
+        config PRIVACY_SHIELD_LOG_BATTERY
+            bool "Battery log level: Debug"
+            default y
+            help
+                When ON: LOG_TAG_BATTERY logs at DEBUG.
+                Shows calibration details, buffer reads, sample counts.
+
+                When OFF: LOG_TAG_BATTERY at WARN.
 
     endmenu
 
