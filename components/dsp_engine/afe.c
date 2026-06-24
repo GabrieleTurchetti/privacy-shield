@@ -167,9 +167,12 @@ esp_err_t audio_afe_init(const char *input_format) {
 
 	// Allocating Buffers
 	microphone_buffer = (int16_t *)malloc(feed_chunksize * sizeof(int16_t));
-	speaker_buffer = (int16_t *)malloc(feed_chunksize * sizeof(int16_t));
 	feed_buffer =
 		(int16_t *)malloc(feed_chunksize * feed_channels * sizeof(int16_t));
+
+	if (valid_speaker) {
+		speaker_buffer = (int16_t *)malloc(feed_chunksize * sizeof(int16_t));
+	}
 
 	// Track VAD state change to avoid spamming the log console
 	AFE_STATE = AUDIO_AFE_VAD_SILENCE;
@@ -196,7 +199,9 @@ void audio_afe_feed(void *pvParameters) {
 
 	// Inital values for speaker buffer for purposes of AEC
 	int feed_chunksize = afe_get_chunksize();
-	memset(speaker_buffer, 0, feed_chunksize * sizeof(int16_t));
+	if (valid_speaker) {
+		memset(speaker_buffer, 0, feed_chunksize * sizeof(int16_t));
+	}
 	while (1) {
 		if (xQueueReceive(audio_input_queue, microphone_buffer,
 						  portMAX_DELAY) == pdTRUE) {
