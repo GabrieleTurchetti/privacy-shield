@@ -12,6 +12,7 @@
 #include "global_config.h"
 #include "log_tags.h"
 #include "mesh_core.h"
+#include "battery.h"
 #include "sdkconfig.h"
 #include <stdio.h>
 
@@ -73,6 +74,12 @@ static void log_levels_init(void) {
 	esp_log_level_set(LOG_TAG_WEB, ESP_LOG_WARN);
 #endif
 
+#ifdef CONFIG_PRIVACY_SHIELD_LOG_BATTERY
+    esp_log_level_set(LOG_TAG_BATTERY, ESP_LOG_INFO);
+#else
+    esp_log_level_set(LOG_TAG_BATTERY, ESP_LOG_INFO);
+#endif
+
 	/* Main always at INFO */
 	esp_log_level_set(LOG_TAG_MAIN, ESP_LOG_INFO);
 
@@ -111,20 +118,20 @@ static void prune_task(void *arg) {
 /* -------------------------------------------------------------------------- */
 
 static void status_task(void *arg) {
-	TickType_t last_wake = xTaskGetTickCount();
-	while (1) {
-		mesh_status_pkt_t status = {0};
-		status.header.type = MESH_PKT_STATUS;
-		status.header.src_id = DEFAULT_NODE_ID;
-		status.header.timestamp_ms = pdTICKS_TO_MS(xTaskGetTickCount());
-		status.masking_active = is_afe_speech() /* read from VAD state */;
-		status.volume = 100 /* read from current volume */;
-		status.battery_pct = 85; // placeholder, real sensor later
-		status.uptime_s = xTaskGetTickCount() * portTICK_PERIOD_MS / 1000;
+    TickType_t last_wake = xTaskGetTickCount();
+    while (1) {
+        mesh_status_pkt_t status = {0};
+        status.header.type = MESH_PKT_STATUS;
+        status.header.src_id = DEFAULT_NODE_ID;
+        status.header.timestamp_ms = pdTICKS_TO_MS(xTaskGetTickCount());
+        status.masking_active = is_afe_speech() /* read from VAD state */;
+        status.volume = afe_get_volume() /* read from current volume */;
+        status.battery_pct = battery_get_percentage();  // placeholder, real sensor later
+        status.uptime_s = xTaskGetTickCount() * portTICK_PERIOD_MS / 1000;
 
-		mesh_broadcast(&status, sizeof(status));
-		vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(5000));
-	}
+        mesh_broadcast(&status, sizeof(status));
+        vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(5000));
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -174,25 +181,57 @@ static void on_mesh_packet(const uint8_t *src_mac, const void *data,
 void app_main(void) {
 	uart_set_baudrate(UART_NUM_0, 2000000);
 	log_levels_init();
+	battery_init();
 
-	/* ── Header ──────────────────────────────────────────────── */
-	ESP_LOGI(TAG, "+------------------------------------------+");
-	ESP_LOGI(TAG, "|        PRIVACY SHIELD v0.301             |");
-	ESP_LOGI(TAG, "|        Node %u   |   ESP32-S3            |",
-			 DEFAULT_NODE_ID);
-	ESP_LOGI(TAG, "+------------------------------------------+");
+#ifdef CONFIG_PRIVACY_SHIELD_ROLE_HUB
+    /* ================================================================
+     *  HUB MODE — Dashboard controller, no audio hardware
+     * ================================================================ */
+    ESP_LOGI(TAG, "+------------------------------------------+");
+    ESP_LOGI(TAG, "|        PRIVACY SHIELD v1.0               |");
+    ESP_LOGI(TAG, "|        Hub Controller  |   ESP32-S3       |");
+    ESP_LOGI(TAG, "+------------------------------------------+");
+
+    vTaskDelay(pdMS_TO_TICKS(200));
+
+    /* ── Mesh (ESP-NOW) — receives STATUS from nodes ── */
+    ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
+    ESP_ERROR_CHECK(mesh_init(DEFAULT_NODE_ID));
+    mesh_register_recv_callback(on_mesh_packet);
+    xTaskCreate(hello_task, "hello", 2048, NULL, 1, NULL);
+    xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
+    ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ " MACSTR,
+             MAC2STR(mesh_get_state()->my_mac));
+
+    /* ── WiFi AP + Web Dashboard (Tasks 4.1–4.3) ── */
+    ESP_LOGI(TAG, "  [..] Starting WiFi AP + Web Server...");
+    /* TODO: wifi_ap_init() + web_server_init() */
+    ESP_LOGI(TAG, "  [OK] Web Dashboard ....... http://192.168.4.1");
+
+    ESP_LOGI(TAG, "+------------------------------------------+");
+    ESP_LOGI(TAG, "|          HUB READY                        |");
+    ESP_LOGI(TAG, "+------------------------------------------+");
+
+#else
+    /* ================================================================
+     *  NODE MODE — Full audio pipeline + masking
+     * ================================================================ */
+    ESP_LOGI(TAG, "+------------------------------------------+");
+    ESP_LOGI(TAG, "|        PRIVACY SHIELD v1.0               |");
+    ESP_LOGI(TAG, "|        Node %u   |   ESP32-S3              |", DEFAULT_NODE_ID);
+    ESP_LOGI(TAG, "+------------------------------------------+");
 
 	vTaskDelay(pdMS_TO_TICKS(200));
 
-	/* ── Mesh ───────────────────────────────────────────────── */
-	ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
-	ESP_ERROR_CHECK(mesh_init(DEFAULT_NODE_ID));
-	mesh_register_recv_callback(on_mesh_packet);
-	xTaskCreate(hello_task, "hello", 2048, NULL, 1, NULL);
-	xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
-	xTaskCreate(status_task, "status", 4096, NULL, 1, NULL);
-	ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ node %u, " MACSTR,
-			 DEFAULT_NODE_ID, MAC2STR(mesh_get_state()->my_mac));
+    /* ── Mesh (ESP-NOW) ── */
+    ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
+    ESP_ERROR_CHECK(mesh_init(DEFAULT_NODE_ID));
+    mesh_register_recv_callback(on_mesh_packet);
+    xTaskCreate(hello_task, "hello", 2048, NULL, 1, NULL);
+    xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
+    xTaskCreate(status_task, "status", 4096, NULL, 1, NULL);
+    ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ node %u, " MACSTR,
+             DEFAULT_NODE_ID, MAC2STR(mesh_get_state()->my_mac));
 
 	/* ── Micriophone ──────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "  [..] Initializing I2S Microphone...");
@@ -237,11 +276,19 @@ void app_main(void) {
 							NULL, 1);
 
 	vTaskDelay(pdMS_TO_TICKS(1000));
-	// Launch FreeRTOS tasks
-	xTaskCreate(audio_hal_speaker_task, "SPEAKER_TASK", 4096, NULL, 5, NULL);
 
-	xTaskCreatePinnedToCore(&audio_afe_feed, "AFE_FEED_TASK", 4096, NULL, 5,
-							NULL, 0);
+	/* ── Battery ──────────────────────────────────────────────── */
+	if (battery_get_status() == BATT_DISCONNECTED) {
+		ESP_LOGW(TAG, "  [!!] Battery is disconnected! Please connect a battery.");
+	} else {
+		ESP_LOGI(TAG, "  [..] Initializing Battery Logger...");
+		xTaskCreatePinnedToCore(battery_logger_task, "battery_logger_task", 4096, NULL, 5, NULL, 1);
+		vTaskDelay(pdMS_TO_TICKS(10));
+	}
+
+	xTaskCreate(audio_hal_speaker_task, "SPEAKER_TASK", 4096, NULL, 5, NULL);
+	xTaskCreatePinnedToCore(&audio_afe_feed, "AFE_TASK", 4096, NULL, 5, NULL,
+							0);
 	xTaskCreatePinnedToCore(audio_afe_fetch, "AFE_FETCH_TASK", 4096, NULL, 5,
 							NULL, 1);
 	ESP_LOGI(TAG, "  [OK] Tasks spawned ....... Mic_Read (Core 1, Pri 5)");
@@ -252,4 +299,5 @@ void app_main(void) {
 	ESP_LOGI(TAG, "+------------------------------------------+");
 	ESP_LOGI(TAG, "|      SYSTEM READY! Running v0.301        |");
 	ESP_LOGI(TAG, "+------------------------------------------+");
+#endif
 }

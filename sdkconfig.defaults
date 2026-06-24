@@ -20,6 +20,9 @@ CONFIG_FREERTOS_HZ=1000
 CONFIG_PRIVACY_SHIELD_DEBUG_MODE=y
 
 # ---- Privacy Shield Configuration ----
+# Device Role: Node (masking device) — change to Hub for dashboard controller
+CONFIG_PRIVACY_SHIELD_ROLE_NODE=y
+
 # Build mode: Debug (raw audio dump + verbose logs)
 CONFIG_PRIVACY_SHIELD_BUILD_DEBUG=y
 

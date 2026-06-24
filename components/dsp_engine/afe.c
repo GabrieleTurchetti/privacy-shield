@@ -40,6 +40,12 @@ static int16_t *microphone_buffer;
 static int16_t *speaker_buffer;
 static int16_t *feed_buffer;
 
+uint8_t volume_pct = 0;
+
+uint8_t afe_get_volume(void) {
+	return volume_pct;
+}
+
 static audio_afe_vad_state_t convert_vad_state(vad_state_t state) {
 	switch (state) {
 	case VAD_SPEECH:
