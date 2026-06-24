@@ -1,5 +1,6 @@
 #include "afe.h"
 
+#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -194,10 +195,7 @@ void audio_afe_feed(void *pvParameters) {
 
 	// Inital values for speaker buffer for purposes of AEC
 	int feed_chunksize = afe_get_chunksize();
-	for (int i = 0; i < AFE_FEED_SAMPLES; i++) {
-		speaker_buffer[i] = (int16_t)0;
-	}
-
+	memset(speaker_buffer, 0, feed_chunksize * sizeof(int16_t));
 	while (1) {
 		if (xQueueReceive(audio_input_queue, microphone_buffer,
 						  portMAX_DELAY) == pdTRUE) {
@@ -233,7 +231,7 @@ void audio_afe_fetch(void *pvParameters) {
 	noise_gen_init(NOISE_TYPE_PINK);
 	// uint8_t frame_count = 0;
 	// float calibration_sum = 0.0f;
-
+	int feed_chunksize = afe_get_chunksize();
 	while (1) {
 
 		afe_fetch_result_t *result = afe_handle->fetch(afe_data);
@@ -260,7 +258,7 @@ void audio_afe_fetch(void *pvParameters) {
 				AFE_STATE = result->vad_state;
 			}
 
-			noise_gen_fill(speaker_buffer, AFE_FEED_SAMPLES);
+			noise_gen_fill(speaker_buffer, feed_chunksize);
 			bool masking;
 			uint8_t volume_pct = 0;
 
@@ -268,11 +266,11 @@ void audio_afe_fetch(void *pvParameters) {
 				// Someone talking — normal volume from RMS
 				volume_pct = volume_process_frame(&vol_state, microphone_buffer,
 												  speaker_buffer,
-												  AFE_FEED_SAMPLES, &masking);
+												  feed_chunksize, &masking);
 			} else {
 				// Silence — force ramp to zero
 				float level = volume_ramp(&vol_state, 0.0f);
-				apply_volume(speaker_buffer, AFE_FEED_SAMPLES, level);
+				apply_volume(speaker_buffer, feed_chunksize, level);
 				masking = false;
 			}
 			if (abs(volume_pct - last_volume) >= 5) {
@@ -294,6 +292,8 @@ void audio_afe_fetch(void *pvParameters) {
 bool is_afe_speech() { return AFE_STATE == AUDIO_AFE_VAD_SPEECH; }
 
 int afe_get_chunksize() { return afe_handle->get_feed_chunksize(afe_data); }
+
+int afe_get_channels() { return afe_handle->get_feed_channel_num(afe_data); }
 
 void audio_afe_destroy(void) {
 	if (afe_handle != NULL && afe_data != NULL) {

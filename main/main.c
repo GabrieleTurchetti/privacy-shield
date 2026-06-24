@@ -222,12 +222,12 @@ void app_main(void) {
 			 feed_chunksize);
 
 	/* ── Audio Queues ───────────────────────────────────────────────── */
-	audio_input_queue = xQueueCreate(1, AFE_FEED_SAMPLES * sizeof(int16_t));
+	audio_input_queue = xQueueCreate(1, feed_chunksize * sizeof(int16_t));
 	if (audio_input_queue == NULL) {
 		ESP_LOGE(TAG, "  [!!] Audio queue creation failed!");
 		return;
 	}
-	audio_output_queue = xQueueCreate(2, AFE_FEED_SAMPLES * sizeof(int16_t));
+	audio_output_queue = xQueueCreate(2, feed_chunksize * sizeof(int16_t));
 	if (audio_output_queue == NULL) {
 		ESP_LOGE(TAG, "  [!!] Noise queue creation failed!");
 		return;
@@ -240,10 +240,10 @@ void app_main(void) {
 	// Launch FreeRTOS tasks
 	xTaskCreate(audio_hal_speaker_task, "SPEAKER_TASK", 4096, NULL, 5, NULL);
 
-	xTaskCreatePinnedToCore(&audio_afe_feed, "AFE_TASK", 4096, NULL, 5, NULL,
-							0);
+	xTaskCreatePinnedToCore(&audio_afe_feed, "AFE_FEED_TASK", 4096, NULL, 5,
+							NULL, 0);
 	xTaskCreatePinnedToCore(audio_afe_fetch, "AFE_FETCH_TASK", 4096, NULL, 5,
-							NULL, 1);
+							NULL, 0);
 	ESP_LOGI(TAG, "  [OK] Tasks spawned ....... Mic_Read (Core 1, Pri 5)");
 	ESP_LOGI(TAG, "                          . AFE_Proc (Core 0, Pri 5)");
 	ESP_LOGI(TAG, "                          . hello + prune (Core 0, Pri 1)");
