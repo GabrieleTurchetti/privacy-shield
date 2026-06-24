@@ -243,7 +243,7 @@ void app_main(void) {
 	xTaskCreatePinnedToCore(&audio_afe_feed, "AFE_FEED_TASK", 4096, NULL, 5,
 							NULL, 0);
 	xTaskCreatePinnedToCore(audio_afe_fetch, "AFE_FETCH_TASK", 4096, NULL, 5,
-							NULL, 0);
+							NULL, 1);
 	ESP_LOGI(TAG, "  [OK] Tasks spawned ....... Mic_Read (Core 1, Pri 5)");
 	ESP_LOGI(TAG, "                          . AFE_Proc (Core 0, Pri 5)");
 	ESP_LOGI(TAG, "                          . hello + prune (Core 0, Pri 1)");

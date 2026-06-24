@@ -23,6 +23,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
+#include "xtensa/hal.h"
 
 static const char *TAG = LOG_TAG_AUDIO_AFE;
 static uint8_t last_volume = 0;
@@ -33,7 +34,7 @@ extern QueueHandle_t audio_input_queue;
 extern QueueHandle_t audio_output_queue;
 
 static audio_afe_vad_state_t AFE_STATE;
-// static int feed_bytes = 0;
+static bool valid_speaker = false;
 
 static int16_t *microphone_buffer;
 static int16_t *speaker_buffer;
@@ -132,8 +133,8 @@ esp_err_t audio_afe_init(const char *input_format) {
 	 * The R channel should be the audio you are sending to the speaker,
 	 * time-aligned as well as possible with the mic input.
 	 */
-	bool has_reference_channel = strchr(input_format, 'R') != NULL;
-	if (has_reference_channel) {
+	valid_speaker = strchr(input_format, 'R') != NULL;
+	if (valid_speaker) {
 		afe_config->aec_init = true;
 		ESP_LOGI(TAG, "AEC Enabled");
 	} else {
@@ -180,7 +181,7 @@ esp_err_t audio_afe_init(const char *input_format) {
 	ESP_LOGI(TAG, "fetch_chunksize=%d, fetch_channels=%d", fetch_chunksize,
 			 fetch_channels);
 	ESP_LOGI(TAG, "VAD enabled");
-	ESP_LOGI(TAG, "AEC %s", has_reference_channel ? "enabled" : "disabled");
+	ESP_LOGI(TAG, "AEC %s", valid_speaker ? "enabled" : "disabled");
 
 	return ESP_OK;
 }
@@ -200,11 +201,16 @@ void audio_afe_feed(void *pvParameters) {
 		if (xQueueReceive(audio_input_queue, microphone_buffer,
 						  portMAX_DELAY) == pdTRUE) {
 
-			for (int i = 0; i < feed_chunksize; i++) {
-				feed_buffer[2 * i] = microphone_buffer[i];
-				feed_buffer[2 * i + 1] = speaker_buffer[i];
-			}
+			if (valid_speaker) {
 
+				for (int i = 0; i < feed_chunksize; i++) {
+					feed_buffer[2 * i] = microphone_buffer[i];
+					feed_buffer[2 * i + 1] = speaker_buffer[i];
+				}
+			} else {
+				memcpy(feed_buffer, microphone_buffer,
+					   feed_chunksize * sizeof(int16_t));
+			}
 			// 1. Feed the 16-bit block into the ESP Front End Engine
 
 			int ret = afe_handle->feed(afe_data, feed_buffer);
@@ -258,33 +264,37 @@ void audio_afe_fetch(void *pvParameters) {
 				AFE_STATE = result->vad_state;
 			}
 
-			noise_gen_fill(speaker_buffer, feed_chunksize);
-			bool masking;
-			uint8_t volume_pct = 0;
+			if (valid_speaker) {
 
-			if (AFE_STATE == AUDIO_AFE_VAD_SPEECH) {
-				// Someone talking — normal volume from RMS
-				volume_pct = volume_process_frame(&vol_state, microphone_buffer,
-												  speaker_buffer,
-												  feed_chunksize, &masking);
-			} else {
-				// Silence — force ramp to zero
-				float level = volume_ramp(&vol_state, 0.0f);
-				apply_volume(speaker_buffer, feed_chunksize, level);
-				masking = false;
-			}
-			if (abs(volume_pct - last_volume) >= 5) {
-				if (masking) {
-					ESP_LOGI(TAG, "Masking active — volume %u%%", volume_pct);
+				noise_gen_fill(speaker_buffer, feed_chunksize);
+				bool masking;
+				uint8_t volume_pct = 0;
+
+				if (AFE_STATE == AUDIO_AFE_VAD_SPEECH) {
+					// Someone talking — normal volume from RMS
+					volume_pct = volume_process_frame(
+						&vol_state, microphone_buffer, speaker_buffer,
+						feed_chunksize, &masking);
 				} else {
-					ESP_LOGI(TAG, "Masking inactive — volume %u%%", volume_pct);
+					// Silence — force ramp to zero
+					float level = volume_ramp(&vol_state, 0.0f);
+					apply_volume(speaker_buffer, feed_chunksize, level);
+					masking = false;
 				}
-				last_volume = volume_pct;
+				if (abs(volume_pct - last_volume) >= 5) {
+					if (masking) {
+						ESP_LOGI(TAG, "Masking active — volume %u%%",
+								 volume_pct);
+					} else {
+						ESP_LOGI(TAG, "Masking inactive — volume %u%%",
+								 volume_pct);
+					}
+					last_volume = volume_pct;
+				}
+
+				xQueueSend(audio_output_queue, speaker_buffer, portMAX_DELAY);
 			}
-
-			xQueueSend(audio_output_queue, speaker_buffer, portMAX_DELAY);
 		}
-
 		vTaskDelay(pdMS_TO_TICKS(1));
 	}
 }
