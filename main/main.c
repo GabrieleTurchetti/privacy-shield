@@ -281,4 +281,5 @@ void app_main(void) {
 	ESP_LOGI(TAG, "+------------------------------------------+");
 	ESP_LOGI(TAG, "|      SYSTEM READY! Running v0.301        |");
 	ESP_LOGI(TAG, "+------------------------------------------+");
+#endif
 }
