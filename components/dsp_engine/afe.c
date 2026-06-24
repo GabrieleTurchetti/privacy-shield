@@ -31,10 +31,6 @@ static esp_afe_sr_data_t *afe_data = NULL;
 extern QueueHandle_t audio_input_queue;
 extern QueueHandle_t audio_output_queue;
 
-static int feed_chunksize = 0;
-static int feed_channels = 0;
-static int fetch_chunksize = 0;
-static int fetch_channels = 0;
 static audio_afe_vad_state_t AFE_STATE;
 // static int feed_bytes = 0;
 
@@ -162,10 +158,10 @@ esp_err_t audio_afe_init(const char *input_format) {
 		return ESP_FAIL;
 	}
 
-	feed_chunksize = afe_handle->get_feed_chunksize(afe_data);
-	feed_channels = afe_handle->get_feed_channel_num(afe_data);
-	fetch_chunksize = afe_handle->get_fetch_chunksize(afe_data);
-	fetch_channels = afe_handle->get_fetch_channel_num(afe_data);
+	int feed_chunksize = afe_handle->get_feed_chunksize(afe_data);
+	int feed_channels = afe_handle->get_feed_channel_num(afe_data);
+	int fetch_chunksize = afe_handle->get_fetch_chunksize(afe_data);
+	int fetch_channels = afe_handle->get_fetch_channel_num(afe_data);
 
 	// Allocating Buffers
 	microphone_buffer = (int16_t *)malloc(feed_chunksize * sizeof(int16_t));
@@ -197,6 +193,7 @@ void audio_afe_feed(void *pvParameters) {
 	}
 
 	// Inital values for speaker buffer for purposes of AEC
+	int feed_chunksize = afe_get_chunksize();
 	for (int i = 0; i < AFE_FEED_SAMPLES; i++) {
 		speaker_buffer[i] = (int16_t)0;
 	}
@@ -296,6 +293,8 @@ void audio_afe_fetch(void *pvParameters) {
 
 bool is_afe_speech() { return AFE_STATE == AUDIO_AFE_VAD_SPEECH; }
 
+int afe_get_chunksize() { return afe_handle->get_feed_chunksize(afe_data); }
+
 void audio_afe_destroy(void) {
 	if (afe_handle != NULL && afe_data != NULL) {
 		afe_handle->destroy(afe_data);
@@ -303,11 +302,5 @@ void audio_afe_destroy(void) {
 
 	afe_data = NULL;
 	afe_handle = NULL;
-
-	feed_chunksize = 0;
-	feed_channels = 0;
-	fetch_chunksize = 0;
-	fetch_channels = 0;
-
 	ESP_LOGI(TAG, "AFE destroyed");
 }
