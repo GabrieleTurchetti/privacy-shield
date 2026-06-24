@@ -42,9 +42,12 @@ void battery_init(void) {
 batt_status_t battery_get_status(void) {
     int stat1 = gpio_get_level(PIN_BATT_STAT1);
     int stat2 = gpio_get_level(PIN_BATT_STAT2);
+    float voltage = battery_get_voltage();
+
+    if (voltage < 2.5f) return BATT_DISCONNECTED;
 
     // MCP73833 Truth Table
-    if (stat1 == 0 && stat2 == 1) return BATT_CHARGING;
+        if (stat1 == 0 && stat2 == 1) return BATT_CHARGING;
     if (stat1 == 1 && stat2 == 0) return BATT_FULL;
     if (stat1 == 0 && stat2 == 0) return BATT_CHARGING; // This state is not expected, but we treat it as charging
     
@@ -52,14 +55,14 @@ batt_status_t battery_get_status(void) {
     return BATT_DISCHARGING; 
 }
 
-#define WINDOW_SIZE 100
+#define WINDOW_SIZE 60
 static float percentage_window[WINDOW_SIZE];
 static int window_index = 0;
 
 float battery_get_voltage(void) {
     int adc_raw = 0;
 
-    ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, BATT_ADC_CHAN, &adc_raw));
+    adc_oneshot_read(adc_handle, BATT_ADC_CHAN, &adc_raw);
 
     float pin_voltage = (adc_raw / 4095.0f) * 3.3f;
 
@@ -116,6 +119,7 @@ void battery_logger_task(void *pvParameters) {
             case BATT_FULL:        status_str = "FULL \xE2\x9C\x85"; break;
             case BATT_DISCHARGING: status_str = "DISCHARGING \xF0\x9F\x94\x8B"; break;
             case BATT_ERROR:       status_str = "ERROR \xE2\x9A\xA0"; break;
+            case BATT_DISCONNECTED:status_str = "DISCONNECTED \xE2\x9A\xA0"; break;
         }
 
         // Print the formatted log message to the console

@@ -272,8 +272,13 @@ void app_main(void) {
 	vTaskDelay(pdMS_TO_TICKS(1));
 
 	/* ── Battery ──────────────────────────────────────────────── */
-	xTaskCreatePinnedToCore(battery_logger_task, "battery_logger_task", 4096, NULL, 5, NULL, 1);
+	if (battery_get_status() == BATT_DISCONNECTED) {
+		ESP_LOGW(TAG, "  [!!] Battery is disconnected! Please connect a battery.");
+	} else {
+		ESP_LOGI(TAG, "  [..] Initializing Battery Logger...");
+		xTaskCreatePinnedToCore(battery_logger_task, "battery_logger_task", 4096, NULL, 5, NULL, 1);
 		vTaskDelay(pdMS_TO_TICKS(10));
+	}
 
 	xTaskCreate(audio_hal_speaker_task, "SPEAKER_TASK", 4096, NULL, 5, NULL);
 	xTaskCreatePinnedToCore(&audio_afe_feed, "AFE_TASK", 4096, NULL, 5, NULL,

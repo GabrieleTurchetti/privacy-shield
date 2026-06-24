@@ -9,6 +9,7 @@ typedef enum {
     BATT_CHARGING,    // Charging
     BATT_FULL,        // Charge complete
     BATT_DISCHARGING, // Running on battery
+    BATT_DISCONNECTED,  // Battery is disconnected
     BATT_ERROR        // Overheating or battery failure
 } batt_status_t;
 
