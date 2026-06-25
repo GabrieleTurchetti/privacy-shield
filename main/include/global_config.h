@@ -24,4 +24,5 @@
 /* -------------------------------------------------------------------------- */
 /*  Node defaults                                                            */
 /* -------------------------------------------------------------------------- */
-#define DEFAULT_NODE_ID     1    /* Change per device (1–254). 0 = hub. */
+// Remove this
+//#define DEFAULT_NODE_ID     1    /* Change per device (1–254). 0 = hub. */

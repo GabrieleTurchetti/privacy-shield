@@ -21,6 +21,47 @@ static const char *TAG = LOG_TAG_MESH_CORE;
 
 mesh_state_t s_mesh = {0};
 static mesh_recv_callback_t s_user_callback = NULL;
+static uint8_t node_id = 0;
+static mesh_status_callback_t s_status_callback;
+
+/* -------------------------------------------------------------------------- */
+/* Packet received callback — handle incoming mesh packets,                   */
+/*   called inside mesh_init                                                  */
+/* -------------------------------------------------------------------------- */
+
+static void on_mesh_packet(const uint8_t *src_mac, const void *data, size_t len) {
+    const mesh_header_t *hdr = (const mesh_header_t *)data;
+
+    switch (hdr->type) {
+        case MESH_PKT_HELLO:
+            ESP_LOGI(LOG_TAG_DISCOVERY, "HELLO from node %u (" MACSTR ")", hdr->src_id, MAC2STR(src_mac));
+            break;
+
+        case MESH_PKT_STATUS:
+            if (len >= sizeof(mesh_status_pkt_t)) {
+                const mesh_status_pkt_t *status = (const mesh_status_pkt_t *)data;
+                ESP_LOGI(LOG_TAG_DISCOVERY, "STATUS from node %u: masking=%s vol=%u batt=%u%%",
+                         status->header.src_id, status->masking_active ? "ON" : "OFF",
+                         status->volume, status->battery_pct);
+                if (s_status_callback) s_status_callback(status, src_mac);
+            }
+            break;
+
+        case MESH_PKT_COMMAND:
+            if (len >= sizeof(mesh_command_pkt_t)) {
+                const mesh_command_pkt_t *cmd = (const mesh_command_pkt_t *)data;
+                ESP_LOGI(LOG_TAG_DISCOVERY, "COMMAND from node %u: cmd=%u val=%u", cmd->header.src_id,
+                         cmd->command, cmd->value);
+                /* Future: act on mute/unmute/volume commands here */
+            }
+            break;
+
+        default:
+            ESP_LOGD(LOG_TAG_DISCOVERY, "Unknown packet type 0x%02X from node %u", hdr->type, hdr->src_id);
+            break;
+    }
+}
+
 
 /* -------------------------------------------------------------------------- */
 /*  ESP-NOW send callback                                                     */
@@ -100,23 +141,23 @@ static esp_err_t wifi_init(wifi_mode_t wifi_mode) {
 /*  Public API                                                                */
 /* -------------------------------------------------------------------------- */
 
-esp_err_t mesh_init(uint8_t node_id, wifi_mode_t wifi_mode) {
+esp_err_t mesh_init(wifi_mode_t wifi_mode, mesh_status_callback_t status_cb) {
     if (s_mesh.initialized) {
         ESP_LOGW(TAG, "Mesh already initialized");
         return ESP_OK;
     }
 
-    /* 1. Bring up WiFi (needed for ESP-NOW radio) */
+    /* Bring up WiFi (needed for ESP-NOW radio) */
     ESP_ERROR_CHECK(wifi_init(wifi_mode));
 
-    /* 2. Initialize ESP-NOW */
+    /* Initialize ESP-NOW */
     ESP_ERROR_CHECK(esp_now_init());
 
-    /* 3. Register callbacks */
+    /* Register callbacks */
     ESP_ERROR_CHECK(esp_now_register_send_cb(espnow_send_cb));
     ESP_ERROR_CHECK(esp_now_register_recv_cb(espnow_recv_cb));
 
-    /* 4. Add broadcast peer (so we can send broadcast packets) */
+    /* Add broadcast peer (so we can send broadcast packets) */
     esp_now_peer_info_t broadcast_peer = {0};
     uint8_t broadcast_mac[] = MESH_BROADCAST_MAC;
     memcpy(broadcast_peer.peer_addr, broadcast_mac, ESP_NOW_ETH_ALEN);
@@ -126,22 +167,38 @@ esp_err_t mesh_init(uint8_t node_id, wifi_mode_t wifi_mode) {
     /* Adding broadcast peer may fail if already added — ignore */
     esp_now_add_peer(&broadcast_peer);
 
-    /* 5. Get our own MAC */
+    /* Get our own MAC */
     ESP_ERROR_CHECK(esp_wifi_get_mac(
         wifi_mode == WIFI_MODE_AP ? WIFI_IF_AP : WIFI_IF_STA,
         s_mesh.my_mac));
 
-    /* 6. Fill in our state */
+    /* Fill in our state */
+    // This way each node get its own id automatically
+    uint8_t mac[6];
+    esp_efuse_mac_get_default(mac);
+    node_id = (mac[3] ^ mac[4] ^ mac[5]) % 254 + 1;  // range 1–254
     s_mesh.my_id = node_id;
     s_mesh.initialized = true;
 
     ESP_LOGI(TAG, "Mesh initialized — node_id=%u, MAC=" MACSTR,
              node_id, MAC2STR(s_mesh.my_mac));
 
-    /* 7. Send initial HELLO to announce presence */
+    /* Send initial HELLO to announce presence */
     mesh_send_hello();
+    //we also register callback during init
+    mesh_register_recv_callback(on_mesh_packet);
+    s_status_callback = status_cb;
 
     return ESP_OK;
+}
+
+uint8_t get_node_id() {
+    if(node_id == 0){
+        uint8_t mac[6];
+        esp_efuse_mac_get_default(mac);
+        node_id = (mac[3] ^ mac[4] ^ mac[5]) % 254 + 1;
+    }
+    return node_id;
 }
 
 esp_err_t mesh_send(const uint8_t *mac, const void *data, size_t len) {

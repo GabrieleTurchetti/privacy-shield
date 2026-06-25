@@ -81,99 +81,15 @@ static void log_levels_init(void) {
 	ESP_LOGI(TAG, "Log levels initialized");
 }
 
-/* -------------------------------------------------------------------------- */
-/* Hello task — broadcast our presence every 10 seconds                      */
-/* -------------------------------------------------------------------------- */
-
-static void hello_task(void *arg) {
-	TickType_t last_wake = xTaskGetTickCount();
-	while (1) {
-		mesh_send_hello();
-		vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(10000));
-	}
-}
-
-/* -------------------------------------------------------------------------- */
-/* Prune task — clean up timed-out neighbors every 10 seconds                 */
-/* -------------------------------------------------------------------------- */
-
-static void prune_task(void *arg) {
-    while (1) {
-        mesh_discovery_prune();
-        int count = mesh_discovery_count();
-        if (count > 0) {
-            ESP_LOGI(LOG_TAG_MESH_CORE, "%d neighbor(s) online", count);
-        }
-        vTaskDelay(pdMS_TO_TICKS(10000));
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-/* Status task — Broadcast status of the node, like masking, volume etc       */
-/* -------------------------------------------------------------------------- */
-
-static void status_task(void *arg) {
-    TickType_t last_wake = xTaskGetTickCount();
-    while (1) {
-        mesh_status_pkt_t status = {0};
-        status.header.type = MESH_PKT_STATUS;
-        status.header.src_id = DEFAULT_NODE_ID;
-        status.header.timestamp_ms = pdTICKS_TO_MS(xTaskGetTickCount());
-        status.masking_active = is_afe_speech() /* read from VAD state */;
-        status.volume = 100 /* read from current volume */;
-        status.battery_pct = 85;  // placeholder, real sensor later
-        status.uptime_s = xTaskGetTickCount() * portTICK_PERIOD_MS / 1000;
-
-        mesh_broadcast(&status, sizeof(status));
-        vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(5000));
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-/* Packet received callback — handle incoming mesh packets                   */
-/* -------------------------------------------------------------------------- */
-
-static void on_mesh_packet(const uint8_t *src_mac, const void *data, size_t len) {
-    const mesh_header_t *hdr = (const mesh_header_t *)data;
-
-    switch (hdr->type) {
-        case MESH_PKT_HELLO:
-            ESP_LOGI(LOG_TAG_DISCOVERY, "HELLO from node %u (" MACSTR ")", hdr->src_id, MAC2STR(src_mac));
-            break;
-
-        case MESH_PKT_STATUS:
-            if (len >= sizeof(mesh_status_pkt_t)) {
-                const mesh_status_pkt_t *status = (const mesh_status_pkt_t *)data;
-                ESP_LOGI(LOG_TAG_DISCOVERY, "STATUS from node %u: masking=%s vol=%u batt=%u%%",
-                         status->header.src_id, status->masking_active ? "ON" : "OFF",
-                         status->volume, status->battery_pct);
-#ifdef CONFIG_PRIVACY_SHIELD_ROLE_HUB
-                web_dashboard_update_status(status, src_mac);
-#endif
-            }
-            break;
-
-        case MESH_PKT_COMMAND:
-            if (len >= sizeof(mesh_command_pkt_t)) {
-                const mesh_command_pkt_t *cmd = (const mesh_command_pkt_t *)data;
-                ESP_LOGI(LOG_TAG_DISCOVERY, "COMMAND from node %u: cmd=%u val=%u", cmd->header.src_id,
-                         cmd->command, cmd->value);
-                /* Future: act on mute/unmute/volume commands here */
-            }
-            break;
-
-        default:
-            ESP_LOGD(LOG_TAG_DISCOVERY, "Unknown packet type 0x%02X from node %u", hdr->type, hdr->src_id);
-            break;
-    }
-}
-
+//This will be removed once we substitute with correct methods
+static uint8_t stub_100(void) { return 100; }
 /* -------------------------------------------------------------------------- */
 /* Entry point                                                                */
 /* -------------------------------------------------------------------------- */
 void app_main(void) {
 	uart_set_baudrate(UART_NUM_0, 2000000);
 	log_levels_init();
+	uint8_t node_id = get_node_id();
 
 #ifdef CONFIG_PRIVACY_SHIELD_ROLE_HUB
     /* ================================================================
@@ -188,8 +104,7 @@ void app_main(void) {
 
     /* ── Mesh (ESP-NOW) — receives STATUS from nodes ── */
     ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
-    ESP_ERROR_CHECK(mesh_init(DEFAULT_NODE_ID, WIFI_MODE_AP));
-    mesh_register_recv_callback(on_mesh_packet);
+    ESP_ERROR_CHECK(mesh_init(WIFI_MODE_AP, web_dashboard_update_status));
     xTaskCreate(hello_task, "hello", 2048, NULL, 1, NULL);
     xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
     ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ " MACSTR,
@@ -211,20 +126,26 @@ void app_main(void) {
      * ================================================================ */
     ESP_LOGI(TAG, "+------------------------------------------+");
     ESP_LOGI(TAG, "|        PRIVACY SHIELD v1.0               |");
-    ESP_LOGI(TAG, "|        Node %u   |   ESP32-S3              |", DEFAULT_NODE_ID);
+    ESP_LOGI(TAG, "|        Node %u   |   ESP32-S3              |", node_id);
     ESP_LOGI(TAG, "+------------------------------------------+");
 
 	vTaskDelay(pdMS_TO_TICKS(200));
 
     /* ── Mesh (ESP-NOW) — receives STATUS from nodes ── */
     ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
-    ESP_ERROR_CHECK(mesh_init(DEFAULT_NODE_ID, WIFI_MODE_STA));
-    mesh_register_recv_callback(on_mesh_packet);
+    ESP_ERROR_CHECK(mesh_init(WIFI_MODE_STA,NULL));
+    
     xTaskCreate(hello_task, "hello", 2048, NULL, 1, NULL);
     xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
-    xTaskCreate(status_task, "status", 4096, NULL, 1, NULL);
+
+	status_task_params_t *params = malloc(sizeof(*params));
+	params->node_id     = node_id;
+	params->is_speech   = is_afe_speech;
+	params->get_volume  = stub_100;
+	params->get_battery = stub_100;
+	xTaskCreate(status_task, "status", 4096, params, 1, NULL);
     ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ node %u, " MACSTR,
-             DEFAULT_NODE_ID, MAC2STR(mesh_get_state()->my_mac));
+             node_id, MAC2STR(mesh_get_state()->my_mac));
 
 	/* ── Audio ───────────────────────────────────────────────── */
 	audio_input_queue = xQueueCreate(1, AFE_FEED_SAMPLES * sizeof(int16_t));

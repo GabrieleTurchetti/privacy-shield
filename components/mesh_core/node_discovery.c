@@ -19,7 +19,7 @@ extern mesh_state_t s_mesh;
 void mesh_discovery_heard(const uint8_t *mac, uint8_t node_id) {
     uint32_t now = pdTICKS_TO_MS(xTaskGetTickCount());
 
-    /* 1. Look for an existing entry for this MAC */
+    /* Look for an existing entry for this MAC */
     for (int i = 0; i < MESH_MAX_NEIGHBORS; i++) {
         if (s_mesh.neighbors[i].active &&
             memcmp(s_mesh.neighbors[i].mac, mac, ESP_NOW_ETH_ALEN) == 0) {
@@ -30,7 +30,7 @@ void mesh_discovery_heard(const uint8_t *mac, uint8_t node_id) {
         }
     }
 
-    /* 2. Not found — find an empty slot */
+    /* Not found — find an empty slot */
     for (int i = 0; i < MESH_MAX_NEIGHBORS; i++) {
         if (!s_mesh.neighbors[i].active) {
             memcpy(s_mesh.neighbors[i].mac, mac, ESP_NOW_ETH_ALEN);
@@ -44,7 +44,7 @@ void mesh_discovery_heard(const uint8_t *mac, uint8_t node_id) {
         }
     }
 
-    /* 3. Table full — replace the oldest entry */
+    /* Table full — replace the oldest entry */
     uint32_t oldest = UINT32_MAX;
     int oldest_idx = 0;
     for (int i = 0; i < MESH_MAX_NEIGHBORS; i++) {
@@ -107,4 +107,48 @@ const mesh_neighbor_t *mesh_discovery_find_mac(const uint8_t *mac) {
         }
     }
     return NULL;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  TASKS                                                                     */
+/* -------------------------------------------------------------------------- */
+
+void hello_task(void *arg) {
+	TickType_t last_wake = xTaskGetTickCount();
+	while (1) {
+		mesh_send_hello();
+		vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(10000));
+	}
+}
+
+
+void prune_task(void *arg) {
+    while (1) {
+        mesh_discovery_prune();
+        int count = mesh_discovery_count();
+        if (count > 0) {
+            ESP_LOGI(LOG_TAG_MESH_CORE, "%d neighbor(s) online", count);
+        }
+        vTaskDelay(pdMS_TO_TICKS(10000));
+    }
+}
+
+
+void status_task(void *arg) {
+    // Maybe I should check this
+    status_task_params_t *params = (status_task_params_t *)arg;
+    TickType_t last_wake = xTaskGetTickCount();
+    while (1) {
+        mesh_status_pkt_t status = {0};
+        status.header.type = MESH_PKT_STATUS;
+        status.header.src_id = params->node_id;
+        status.header.timestamp_ms = pdTICKS_TO_MS(xTaskGetTickCount());
+        status.masking_active = params->is_speech() /* read from VAD state */;
+        status.volume = params->get_volume() /* read from current volume */;
+        status.battery_pct = params->get_battery();  // placeholder, real sensor later
+        status.uptime_s = xTaskGetTickCount() * portTICK_PERIOD_MS / 1000;
+
+        mesh_broadcast(&status, sizeof(status));
+        vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(5000));
+    }
 }

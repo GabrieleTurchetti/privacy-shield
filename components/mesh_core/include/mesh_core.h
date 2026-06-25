@@ -26,7 +26,7 @@ extern "C" {
 #define MESH_PAYLOAD_MAX           250
 
 /* -------------------------------------------------------------------------- */
-/*  Packet types (what kind of message is this?)                              */
+/*  Packet types                                                              */
 /* -------------------------------------------------------------------------- */
 
 typedef enum {
@@ -66,6 +66,9 @@ typedef struct __attribute__((packed)) {
     uint8_t  battery_pct;    /* 0-100 */
     uint32_t uptime_s;       /* seconds since boot */
 } mesh_status_pkt_t;
+
+//Used to pass web dashboard refresh method
+typedef void (*mesh_status_callback_t)(const mesh_status_pkt_t *status, const uint8_t *mac);
 
 /* -------------------------------------------------------------------------- */
 /*  COMMAND packet (hub → node)                                               */
@@ -113,12 +116,13 @@ typedef struct {
 /**
  * @brief Initialize ESP-NOW and start the mesh.
  *
- * @param node_id    Unique ID for this node (0 = hub, 1-254 = masking nodes).
  * @param wifi_mode  WiFi mode for the underlying radio (WIFI_MODE_STA for nodes,
+ * @param status_cb pass web dashboard refresh function
  *                   WIFI_MODE_AP for the Hub). ESP-NOW coexists with either.
  * @return ESP_OK on success.
  */
-esp_err_t mesh_init(uint8_t node_id, wifi_mode_t wifi_mode);
+esp_err_t mesh_init(wifi_mode_t wifi_mode, mesh_status_callback_t status_cb);
+
 
 /**
  * @brief Send a raw payload to a specific MAC address.
@@ -190,6 +194,49 @@ int mesh_discovery_count(void);
  * @return Pointer to the neighbor record, or NULL if not found.
  */
 const mesh_neighbor_t *mesh_discovery_find_mac(const uint8_t *mac);
+
+/**
+ * @brief This method returns the node id of the device
+ *
+ * @return node id identifier
+ */
+uint8_t get_node_id();
+
+
+/* -------------------------------------------------------------------------- */
+/*  TASKS                                                                     */
+/* -------------------------------------------------------------------------- */
+
+
+/** --------------------------------------------------------------------------
+ * @brief Hello task — broadcast our presence every 10 seconds                      
+* -------------------------------------------------------------------------- */
+
+void hello_task(void *arg);
+
+
+/** -------------------------------------------------------------------------- 
+* @brief Status task — Broadcast status of the node, like masking, volume etc
+* @param pass arg as struct status_task_params_t to arg
+* -------------------------------------------------------------------------- */
+
+typedef struct {
+    uint8_t  node_id;
+    bool   (*is_speech)(void); //is speech
+    uint8_t (*get_volume)(void); //get volume
+    uint8_t (*get_battery)(void); //get battery
+} status_task_params_t;
+
+void status_task(void *arg);
+
+
+/** -------------------------------------------------------------------------- 
+* @brief Prune task — clean up timed-out neighbors every 10 seconds           
+* -------------------------------------------------------------------------- */
+
+void prune_task(void *arg);
+
+
 
 #ifdef __cplusplus
 }
