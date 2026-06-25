@@ -79,6 +79,7 @@ typedef enum {
     MESH_CMD_UNMUTE     = 0x02,
     MESH_CMD_SET_VOLUME = 0x03,
     MESH_CMD_REBOOT     = 0x04,
+    MESH_CMD_UNLOCK     = 0x05,
 } mesh_command_t;
 
 typedef struct __attribute__((packed)) {

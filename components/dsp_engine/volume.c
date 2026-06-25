@@ -2,10 +2,12 @@
 #include <math.h>
 #include <string.h>
 #include "esp_log.h"
-
+#include "log_tags.h"
 /* -------------------------------------------------------------------------- */
 /* Public API                                                                 */
 /* -------------------------------------------------------------------------- */
+
+static const char *TAG = LOG_TAG_AUDIO_AFE;
 
 void volume_init(volume_state_t *vol) {
     vol->current = 0.0f;
@@ -60,7 +62,7 @@ uint8_t volume_process_frame(volume_state_t *vol,
                              int count, bool *masking_active) {
     /* Measure speech level from mic */
     float rms = compute_rms(mic_in, count);
-    ESP_LOGI("VOLUME", "RMS: %.1f (noise floor: %.1f)", rms, vol->noise_floor);
+    //ESP_LOGI(TAG, "RMS: %.1f (noise floor: %.1f)", rms, vol->noise_floor);
 
     /* Convert to target volume (log scale, respect noise floor) */
     float target = rms_to_volume(rms, vol->noise_floor);
