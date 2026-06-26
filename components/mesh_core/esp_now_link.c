@@ -23,6 +23,7 @@ mesh_state_t s_mesh = {0};
 static mesh_recv_callback_t s_user_callback = NULL;
 static uint8_t node_id = 0;
 static mesh_status_callback_t s_status_callback;
+static volume_command_cb *s_volume_command_callback;
 
 /* -------------------------------------------------------------------------- */
 /* Packet received callback — handle incoming mesh packets,                   */
@@ -52,7 +53,28 @@ static void on_mesh_packet(const uint8_t *src_mac, const void *data, size_t len)
                 const mesh_command_pkt_t *cmd = (const mesh_command_pkt_t *)data;
                 ESP_LOGI(LOG_TAG_DISCOVERY, "COMMAND from node %u: cmd=%u val=%u", cmd->header.src_id,
                          cmd->command, cmd->value);
-                /* Future: act on mute/unmute/volume commands here */
+                switch (cmd->command)
+                {
+                case MESH_CMD_MUTE:
+                    s_volume_command_callback ->set_masking(0);
+                    break;
+                case MESH_CMD_UNMUTE:
+                    s_volume_command_callback ->set_masking(1);
+                    break;
+                case MESH_CMD_SET_VOLUME:
+                    s_volume_command_callback ->set_volume(cmd->value);
+                    break;
+                case MESH_CMD_REBOOT:
+                    vTaskDelay(pdMS_TO_TICKS(100));  // let log flush
+                    esp_restart();
+                    break;
+                case MESH_CMD_UNLOCK:
+                    s_volume_command_callback -> unlock();
+                    break;
+                default:
+                    break;
+                }
+                
             }
             break;
 
@@ -141,7 +163,7 @@ static esp_err_t wifi_init(wifi_mode_t wifi_mode) {
 /*  Public API                                                                */
 /* -------------------------------------------------------------------------- */
 
-esp_err_t mesh_init(wifi_mode_t wifi_mode, mesh_status_callback_t status_cb) {
+esp_err_t mesh_init(wifi_mode_t wifi_mode, mesh_status_callback_t status_cb, volume_command_cb *command_cb){
     if (s_mesh.initialized) {
         ESP_LOGW(TAG, "Mesh already initialized");
         return ESP_OK;
@@ -188,6 +210,7 @@ esp_err_t mesh_init(wifi_mode_t wifi_mode, mesh_status_callback_t status_cb) {
     //we also register callback during init
     mesh_register_recv_callback(on_mesh_packet);
     s_status_callback = status_cb;
+    s_volume_command_callback = command_cb;
 
     return ESP_OK;
 }

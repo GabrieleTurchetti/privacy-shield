@@ -25,6 +25,8 @@ esp_err_t api_node_unmute_post_handler(httpd_req_t *req);
 esp_err_t api_node_volume_post_handler(httpd_req_t *req);
 esp_err_t api_global_mute_post_handler(httpd_req_t *req);
 esp_err_t api_global_unmute_post_handler(httpd_req_t *req);
+esp_err_t api_node_unlock_post_handler(httpd_req_t *req);
+esp_err_t api_node_reboot_post_handler(httpd_req_t *req);
 esp_err_t dashboard_get_handler(httpd_req_t *req);
 
 /* -------------------------------------------------------------------------- */
@@ -92,7 +94,7 @@ esp_err_t web_server_init(void) {
         .user_ctx  = NULL,
     };
     httpd_register_uri_handler(s_server, &dashboard_uri);
-
+    //Maybe we can split dashboard and rest api in two files
     /* ── REST API ── */
     httpd_uri_t nodes_get = {
         .uri       = "/api/nodes",
@@ -135,6 +137,20 @@ esp_err_t web_server_init(void) {
         .handler   = api_global_unmute_post_handler,
     };
     httpd_register_uri_handler(s_server, &global_unmute);
+
+    httpd_uri_t node_unlock = {
+        .uri       = "/api/node/*/unlock",
+        .method    = HTTP_POST,
+        .handler   = api_node_unlock_post_handler,
+    };
+    httpd_register_uri_handler(s_server, &node_unlock);
+
+    httpd_uri_t node_reboot = {
+        .uri       = "/api/node/*/reboot",
+        .method    = HTTP_POST,
+        .handler   = api_node_reboot_post_handler,
+    };
+    httpd_register_uri_handler(s_server, &node_reboot);
 
     ESP_LOGI(TAG, "HTTP server started — http://192.168.4.1");
     return ESP_OK;

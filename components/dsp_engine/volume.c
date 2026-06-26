@@ -8,6 +8,12 @@
 /* -------------------------------------------------------------------------- */
 
 static const char *TAG = LOG_TAG_AUDIO_AFE;
+static bool is_volume_override = false;
+static bool is_masking_override = false;
+static bool cmd_mask = false;
+static float cmd_volume_level = 0.0f;
+float level;
+
 
 void volume_init(volume_state_t *vol) {
     vol->current = 0.0f;
@@ -60,6 +66,18 @@ void apply_volume(int16_t *buffer, int count, float level) {
 uint8_t volume_process_frame(volume_state_t *vol,
                              const int16_t *mic_in, int16_t *noise_out,
                              int count, bool *masking_active) {
+    
+    if (is_volume_override){
+        /* Apply to output */
+        level = cmd_volume_level;
+        apply_volume(noise_out, count, level);
+        // we set command if hub sent command
+        // note: if masking_active = fase, afe.c will disbale the audio, setting it to false is sufficient
+        *masking_active = is_masking_override ? cmd_mask : (level > 0.05f);
+        return (uint8_t)(level * 100.0f);
+    }
+    
+    
     /* Measure speech level from mic */
     float rms = compute_rms(mic_in, count);
     //ESP_LOGI(TAG, "RMS: %.1f (noise floor: %.1f)", rms, vol->noise_floor);
@@ -68,7 +86,7 @@ uint8_t volume_process_frame(volume_state_t *vol,
     float target = rms_to_volume(rms, vol->noise_floor);
 
     /* Smooth transition */
-    float level = volume_ramp(vol, target);
+    level = volume_ramp(vol, target);
 
     /* Apply to output */
     apply_volume(noise_out, count, level);
@@ -77,4 +95,24 @@ uint8_t volume_process_frame(volume_state_t *vol,
     *masking_active = (level > 0.05f);  /* >5% = actively masking */
 
     return (uint8_t)(level * 100.0f);
+}
+
+
+void volume_set_command(uint8_t value){
+    is_volume_override = true;
+    cmd_volume_level = value / 100.0f;
+}
+
+void mask_set_command(uint8_t value){
+    is_masking_override = true;
+    cmd_mask = value;
+}
+
+void volume_unlock(){
+    is_volume_override = false;
+    is_masking_override = false;
+}
+
+uint8_t get_volume(){
+    return (uint8_t) (level * 100);
 }

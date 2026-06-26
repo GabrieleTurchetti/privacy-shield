@@ -274,6 +274,31 @@ esp_err_t api_global_unmute_post_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
+esp_err_t api_node_unlock_post_handler(httpd_req_t *req) {
+    int node_id = extract_node_id(req->uri);
+    if (node_id < 0) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid node ID");
+        return ESP_FAIL;
+    }
+    send_command_to_node(node_id, MESH_CMD_UNLOCK, -1); //value is not necessary here
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"ok\":true}");
+    return ESP_OK;
+}
+
+
+esp_err_t api_node_reboot_post_handler(httpd_req_t *req) {
+    int node_id = extract_node_id(req->uri);
+    if (node_id < 0) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid node ID");
+        return ESP_FAIL;
+    }
+    send_command_to_node(node_id, MESH_CMD_REBOOT, -1); //value is not necessary here
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"ok\":true}");
+    return ESP_OK;
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Dashboard HTML (minimal, responsive, auto-refreshing)                     */
 /* -------------------------------------------------------------------------- */

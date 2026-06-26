@@ -75,11 +75,11 @@ typedef void (*mesh_status_callback_t)(const mesh_status_pkt_t *status, const ui
 /* -------------------------------------------------------------------------- */
 
 typedef enum {
-    MESH_CMD_MUTE       = 0x01,
-    MESH_CMD_UNMUTE     = 0x02,
-    MESH_CMD_SET_VOLUME = 0x03,
-    MESH_CMD_REBOOT     = 0x04,
-    MESH_CMD_UNLOCK     = 0x05,
+    MESH_CMD_MUTE        = 0x01,
+    MESH_CMD_UNMUTE      = 0x02,
+    MESH_CMD_SET_VOLUME  = 0x03,
+    MESH_CMD_REBOOT      = 0x04,
+    MESH_CMD_UNLOCK      = 0x05,
 } mesh_command_t;
 
 typedef struct __attribute__((packed)) {
@@ -87,6 +87,13 @@ typedef struct __attribute__((packed)) {
     uint8_t  command;       /* mesh_command_t */
     uint8_t  value;         /* e.g., volume 0-100, or 0/1 for mute */
 } mesh_command_pkt_t;
+
+
+typedef struct {
+    void (*set_volume)(uint8_t);
+    void (*set_masking)(uint8_t);
+    void (*unlock)(void);
+} volume_command_cb;
 
 /* -------------------------------------------------------------------------- */
 /*  Neighbor record                                                           */
@@ -122,7 +129,7 @@ typedef struct {
  *                   WIFI_MODE_AP for the Hub). ESP-NOW coexists with either.
  * @return ESP_OK on success.
  */
-esp_err_t mesh_init(wifi_mode_t wifi_mode, mesh_status_callback_t status_cb);
+esp_err_t mesh_init(wifi_mode_t wifi_mode, mesh_status_callback_t status_cb, volume_command_cb *command_cb);
 
 
 /**

@@ -1,4 +1,5 @@
 ﻿#include "afe.h"
+#include "volume.h"
 #include "audio_hal.h"
 #include "driver/uart.h"
 #include "esp_heap_caps.h"
@@ -104,7 +105,7 @@ void app_main(void) {
 
     /* ── Mesh (ESP-NOW) — receives STATUS from nodes ── */
     ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
-    ESP_ERROR_CHECK(mesh_init(WIFI_MODE_AP, web_dashboard_update_status));
+    ESP_ERROR_CHECK(mesh_init(WIFI_MODE_AP, web_dashboard_update_status, NULL));
     xTaskCreate(hello_task, "hello", 2048, NULL, 1, NULL);
     xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
     ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ " MACSTR,
@@ -133,7 +134,11 @@ void app_main(void) {
 
     /* ── Mesh (ESP-NOW) — receives STATUS from nodes ── */
     ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
-    ESP_ERROR_CHECK(mesh_init(WIFI_MODE_STA,NULL));
+	volume_command_cb *commands = malloc(sizeof(*commands));
+	commands->set_volume = volume_set_command;
+	commands->set_masking = mask_set_command;
+	commands->unlock = volume_unlock;
+    ESP_ERROR_CHECK(mesh_init(WIFI_MODE_STA,NULL, commands));
     
     xTaskCreate(hello_task, "hello", 2048, NULL, 1, NULL);
     xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
@@ -141,7 +146,7 @@ void app_main(void) {
 	status_task_params_t *params = malloc(sizeof(*params));
 	params->node_id     = node_id;
 	params->is_speech   = is_afe_speech;
-	params->get_volume  = stub_100;
+	params->get_volume  = get_volume;
 	params->get_battery = stub_100;
 	xTaskCreate(status_task, "status", 4096, params, 1, NULL);
     ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ node %u, " MACSTR,

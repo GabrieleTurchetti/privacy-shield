@@ -113,6 +113,35 @@ uint8_t volume_process_frame(volume_state_t *vol,
                              const int16_t *mic_in, int16_t *noise_out,
                              int count, bool *masking_active);
 
+/**
+ * @brief This method is used to force amplifier to set a specific volume
+ *
+ * @param value: pass the value that represents the desired volume (should be from 0 to 100 but it will be scaled from 0 to 1 as required by volume.c)
+ */
+void volume_set_command(uint8_t value);
+
+
+/**
+ * @brief This method forces tne node to activate or deactivate the masking
+ *
+ * @param value: 0 or 1, 1 represents active masking, 0 disbale masking
+ */
+void mask_set_command(uint8_t value);
+
+
+/**
+ * @brief This removes alls ovveride that we might have set from previous commands (sent by the hub)
+ *
+ */
+void volume_unlock();
+
+
+/**
+ * @brief get current volume level from 0.0 to 1.0
+ *
+ */
+uint8_t get_volume();
+
 #ifdef __cplusplus
 }
 #endif
