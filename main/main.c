@@ -221,7 +221,7 @@ void app_main(void) {
     ESP_LOGI(TAG, "|        Node %u   |   ESP32-S3              |", DEFAULT_NODE_ID);
     ESP_LOGI(TAG, "+------------------------------------------+");
 
-	vTaskDelay(pdMS_TO_TICKS(200));
+	vTaskDelay(pdMS_TO_TICKS(1));
 
     /* ── Mesh (ESP-NOW) ── */
     ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
@@ -255,7 +255,7 @@ void app_main(void) {
 		return;
 	}
 
-	int feed_chunksize = afe_get_chunksize();
+	int feed_chunksize = afe_feed_chunksize();
 	ESP_LOGI(TAG,
 			 "  [OK] AFE Pipeline ........ VADNet1 Medium, %d samples/chunk",
 			 feed_chunksize);
@@ -297,7 +297,7 @@ void app_main(void) {
 
 	/* ── Footer ─────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "+------------------------------------------+");
-	ESP_LOGI(TAG, "|      SYSTEM READY! Running v0.301        |");
+	ESP_LOGI(TAG, "|      SYSTEM READY! Running v0.305        |");
 	ESP_LOGI(TAG, "+------------------------------------------+");
 #endif
 }

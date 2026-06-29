@@ -49,7 +49,7 @@ void audio_hal_speaker_init(void) {
 }
 
 void audio_hal_speaker_task(void *pvParameters) {
-	int feed_chunksize = afe_get_chunksize();
+	int feed_chunksize = afe_feed_chunksize();
 	int16_t buffer[feed_chunksize];
 	size_t bytes_written;
 
