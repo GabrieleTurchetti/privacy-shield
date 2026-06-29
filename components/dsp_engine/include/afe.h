@@ -8,8 +8,6 @@
 extern "C" {
 #endif
 
-#define AFE_FEED_SAMPLES 512 // Number of raw data samples for Audio Queue
-
 typedef enum {
 	AUDIO_AFE_VAD_SILENCE = 0,
 	AUDIO_AFE_VAD_SPEECH,
@@ -43,7 +41,13 @@ esp_err_t audio_afe_init(const char *input_format);
 
 bool is_afe_speech(void);
 
-bool is_afe_speech(void);
+int afe_feed_chunksize(void);
+
+int afe_feed_channels(void);
+
+int afe_fetch_chunksize(void);
+
+int afe_fetch_channels(void);
 
 /**
  * Feed one frame of raw int16 PCM into the AFE.
@@ -68,8 +72,6 @@ void audio_afe_fetch(void *pvParameters);
  * Audio Front End Destructor essentially
  * */
 void audio_afe_destroy(void);
-
-void audio_afe_task(void *pvParameters);
 
 uint8_t afe_get_volume(void);
 

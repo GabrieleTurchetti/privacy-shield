@@ -28,11 +28,11 @@ QueueHandle_t audio_output_queue = NULL;
 
 static void log_levels_init(void) {
 #ifdef CONFIG_PRIVACY_SHIELD_BUILD_PRODUCTION
-    /* Production: everything quiet */
-    esp_log_level_set("*", ESP_LOG_ERROR);
-    /* Main always at INFO */
-    esp_log_level_set(LOG_TAG_MAIN, ESP_LOG_INFO);
-    return;
+	/* Production: everything quiet */
+	esp_log_level_set("*", ESP_LOG_ERROR);
+	/* Main always at INFO */
+	esp_log_level_set(LOG_TAG_MAIN, ESP_LOG_INFO);
+	return;
 #endif
 
 	/* Set global default to INFO — clean base level */
@@ -49,29 +49,29 @@ static void log_levels_init(void) {
 
 	/* Audio subsystem */
 #ifdef CONFIG_PRIVACY_SHIELD_LOG_AUDIO
-    esp_log_level_set(LOG_TAG_AUDIO_MIC, ESP_LOG_DEBUG);
-    esp_log_level_set(LOG_TAG_AUDIO_AMP, ESP_LOG_DEBUG);
+	esp_log_level_set(LOG_TAG_AUDIO_MIC, ESP_LOG_DEBUG);
+	esp_log_level_set(LOG_TAG_AUDIO_AMP, ESP_LOG_DEBUG);
 #else
-    esp_log_level_set(LOG_TAG_AUDIO_MIC, ESP_LOG_WARN);
-    esp_log_level_set(LOG_TAG_AUDIO_AMP, ESP_LOG_WARN);
+	esp_log_level_set(LOG_TAG_AUDIO_MIC, ESP_LOG_WARN);
+	esp_log_level_set(LOG_TAG_AUDIO_AMP, ESP_LOG_WARN);
 #endif
 
 #ifdef CONFIG_PRIVACY_SHIELD_LOG_AUDIO_AFE
-    esp_log_level_set(LOG_TAG_AUDIO_AFE, ESP_LOG_DEBUG);
-    esp_log_level_set(LOG_TAG_VAD, ESP_LOG_DEBUG);
-    esp_log_level_set(LOG_TAG_NOISE_GEN, ESP_LOG_DEBUG);
-    esp_log_level_set(LOG_TAG_AEC, ESP_LOG_DEBUG);
+	esp_log_level_set(LOG_TAG_AUDIO_AFE, ESP_LOG_DEBUG);
+	esp_log_level_set(LOG_TAG_VAD, ESP_LOG_DEBUG);
+	esp_log_level_set(LOG_TAG_NOISE_GEN, ESP_LOG_DEBUG);
+	esp_log_level_set(LOG_TAG_AEC, ESP_LOG_DEBUG);
 #else
-    esp_log_level_set(LOG_TAG_AUDIO_AFE, ESP_LOG_WARN);
-    esp_log_level_set(LOG_TAG_VAD, ESP_LOG_WARN);
-    esp_log_level_set(LOG_TAG_NOISE_GEN, ESP_LOG_WARN);
-    esp_log_level_set(LOG_TAG_AEC, ESP_LOG_WARN);
+	esp_log_level_set(LOG_TAG_AUDIO_AFE, ESP_LOG_WARN);
+	esp_log_level_set(LOG_TAG_VAD, ESP_LOG_WARN);
+	esp_log_level_set(LOG_TAG_NOISE_GEN, ESP_LOG_WARN);
+	esp_log_level_set(LOG_TAG_AEC, ESP_LOG_WARN);
 #endif
 
 #ifdef CONFIG_PRIVACY_SHIELD_LOG_WEB
-    esp_log_level_set(LOG_TAG_WEB, ESP_LOG_DEBUG);
+	esp_log_level_set(LOG_TAG_WEB, ESP_LOG_DEBUG);
 #else
-    esp_log_level_set(LOG_TAG_WEB, ESP_LOG_WARN);
+	esp_log_level_set(LOG_TAG_WEB, ESP_LOG_WARN);
 #endif
 
 #ifdef CONFIG_PRIVACY_SHIELD_LOG_BATTERY
@@ -103,14 +103,14 @@ static void hello_task(void *arg) {
 /* -------------------------------------------------------------------------- */
 
 static void prune_task(void *arg) {
-    while (1) {
-        mesh_discovery_prune();
-        int count = mesh_discovery_count();
-        if (count > 0) {
-            ESP_LOGI(LOG_TAG_MESH_CORE, "%d neighbor(s) online", count);
-        }
-        vTaskDelay(pdMS_TO_TICKS(10000));
-    }
+	while (1) {
+		mesh_discovery_prune();
+		int count = mesh_discovery_count();
+		if (count > 0) {
+			ESP_LOGI(LOG_TAG_MESH_CORE, "%d neighbor(s) online", count);
+		}
+		vTaskDelay(pdMS_TO_TICKS(10000));
+	}
 }
 
 /* -------------------------------------------------------------------------- */
@@ -138,36 +138,41 @@ static void status_task(void *arg) {
 /* Packet received callback — handle incoming mesh packets                   */
 /* -------------------------------------------------------------------------- */
 
-static void on_mesh_packet(const uint8_t *src_mac, const void *data, size_t len) {
-    const mesh_header_t *hdr = (const mesh_header_t *)data;
+static void on_mesh_packet(const uint8_t *src_mac, const void *data,
+						   size_t len) {
+	const mesh_header_t *hdr = (const mesh_header_t *)data;
 
-    switch (hdr->type) {
-        case MESH_PKT_HELLO:
-            ESP_LOGI(LOG_TAG_DISCOVERY, "HELLO from node %u (" MACSTR ")", hdr->src_id, MAC2STR(src_mac));
-            break;
+	switch (hdr->type) {
+	case MESH_PKT_HELLO:
+		ESP_LOGI(LOG_TAG_DISCOVERY, "HELLO from node %u (" MACSTR ")",
+				 hdr->src_id, MAC2STR(src_mac));
+		break;
 
-        case MESH_PKT_STATUS:
-            if (len >= sizeof(mesh_status_pkt_t)) {
-                const mesh_status_pkt_t *status = (const mesh_status_pkt_t *)data;
-                ESP_LOGI(LOG_TAG_DISCOVERY, "STATUS from node %u: masking=%s vol=%u batt=%u%%",
-                         status->header.src_id, status->masking_active ? "ON" : "OFF",
-                         status->volume, status->battery_pct);
-            }
-            break;
+	case MESH_PKT_STATUS:
+		if (len >= sizeof(mesh_status_pkt_t)) {
+			const mesh_status_pkt_t *status = (const mesh_status_pkt_t *)data;
+			ESP_LOGI(LOG_TAG_DISCOVERY,
+					 "STATUS from node %u: masking=%s vol=%u batt=%u%%",
+					 status->header.src_id,
+					 status->masking_active ? "ON" : "OFF", status->volume,
+					 status->battery_pct);
+		}
+		break;
 
-        case MESH_PKT_COMMAND:
-            if (len >= sizeof(mesh_command_pkt_t)) {
-                const mesh_command_pkt_t *cmd = (const mesh_command_pkt_t *)data;
-                ESP_LOGI(LOG_TAG_DISCOVERY, "COMMAND from node %u: cmd=%u val=%u", cmd->header.src_id,
-                         cmd->command, cmd->value);
-                /* Future: act on mute/unmute/volume commands here */
-            }
-            break;
+	case MESH_PKT_COMMAND:
+		if (len >= sizeof(mesh_command_pkt_t)) {
+			const mesh_command_pkt_t *cmd = (const mesh_command_pkt_t *)data;
+			ESP_LOGI(LOG_TAG_DISCOVERY, "COMMAND from node %u: cmd=%u val=%u",
+					 cmd->header.src_id, cmd->command, cmd->value);
+			/* Future: act on mute/unmute/volume commands here */
+		}
+		break;
 
-        default:
-            ESP_LOGD(LOG_TAG_DISCOVERY, "Unknown packet type 0x%02X from node %u", hdr->type, hdr->src_id);
-            break;
-    }
+	default:
+		ESP_LOGD(LOG_TAG_DISCOVERY, "Unknown packet type 0x%02X from node %u",
+				 hdr->type, hdr->src_id);
+		break;
+	}
 }
 
 /* -------------------------------------------------------------------------- */
@@ -216,7 +221,7 @@ void app_main(void) {
     ESP_LOGI(TAG, "|        Node %u   |   ESP32-S3              |", DEFAULT_NODE_ID);
     ESP_LOGI(TAG, "+------------------------------------------+");
 
-	vTaskDelay(pdMS_TO_TICKS(200));
+	vTaskDelay(pdMS_TO_TICKS(1));
 
     /* ── Mesh (ESP-NOW) ── */
     ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
@@ -227,18 +232,6 @@ void app_main(void) {
     xTaskCreate(status_task, "status", 4096, NULL, 1, NULL);
     ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ node %u, " MACSTR,
              DEFAULT_NODE_ID, MAC2STR(mesh_get_state()->my_mac));
-
-	/* ── Audio ───────────────────────────────────────────────── */
-	audio_input_queue = xQueueCreate(1, AFE_FEED_SAMPLES * sizeof(int16_t));
-	if (audio_input_queue == NULL) {
-		ESP_LOGE(TAG, "  [!!] Audio queue creation failed!");
-		return;
-	}
-	audio_output_queue = xQueueCreate(2, AFE_FEED_SAMPLES * sizeof(int16_t));
-	if (audio_output_queue == NULL) {
-		ESP_LOGE(TAG, "  [!!] Noise queue creation failed!");
-		return;
-	}
 
 	/* ── Micriophone ──────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "  [..] Initializing I2S Microphone...");
@@ -253,9 +246,7 @@ void app_main(void) {
 	ESP_LOGI(TAG, "  [..] Initializing I2S Amplifier...");
 	audio_hal_speaker_init(); // We should decide a standard: Function do o do
 							  // not return esp_err_t? For now, it just logs and
-							  // continues.
-	ESP_LOGI(TAG, "  [OK] I2S Amplifier ...... 16 kHz, 32-bit, Mono");
-
+							  // continues
 	/* ── AFE ────────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "  [..] Initializing AFE Pipeline...");
 	esp_err_t afe_err = audio_afe_init("MR");
@@ -263,13 +254,28 @@ void app_main(void) {
 		ESP_LOGE(TAG, "  [!!] AFE Initialization failed!");
 		return;
 	}
+
+	int feed_chunksize = afe_feed_chunksize();
 	ESP_LOGI(TAG,
 			 "  [OK] AFE Pipeline ........ VADNet1 Medium, %d samples/chunk",
-			 AFE_FEED_SAMPLES);
+			 feed_chunksize);
+
+	/* ── Audio Queues ───────────────────────────────────────────────── */
+	audio_input_queue = xQueueCreate(1, feed_chunksize * sizeof(int16_t));
+	if (audio_input_queue == NULL) {
+		ESP_LOGE(TAG, "  [!!] Audio queue creation failed!");
+		return;
+	}
+	audio_output_queue = xQueueCreate(2, feed_chunksize * sizeof(int16_t));
+	if (audio_output_queue == NULL) {
+		ESP_LOGE(TAG, "  [!!] Noise queue creation failed!");
+		return;
+	}
+	ESP_LOGI(TAG, "  [OK] I2S Amplifier ...... 16 kHz, 32-bit, Mono");
 	xTaskCreatePinnedToCore(audio_hal_mic_read_task, "Mic_Read", 4096, NULL, 5,
 							NULL, 1);
 
-	vTaskDelay(pdMS_TO_TICKS(1));
+	vTaskDelay(pdMS_TO_TICKS(1000));
 
 	/* ── Battery ──────────────────────────────────────────────── */
 	if (battery_get_status() == BATT_DISCONNECTED) {
@@ -291,7 +297,7 @@ void app_main(void) {
 
 	/* ── Footer ─────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "+------------------------------------------+");
-	ESP_LOGI(TAG, "|      SYSTEM READY! Running v0.301        |");
+	ESP_LOGI(TAG, "|      SYSTEM READY! Running v0.305        |");
 	ESP_LOGI(TAG, "+------------------------------------------+");
 #endif
 }
