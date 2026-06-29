@@ -146,6 +146,10 @@ void app_main(void) {
     /* ── Mesh (ESP-NOW) — receives STATUS from nodes ── */
     ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
 	volume_command_cb *commands = malloc(sizeof(*commands));
+	if(commands == NULL){
+		ESP_LOGE(TAG, "Failed to allocate memory for volume_command_cb");
+		return;
+	}
 	commands->set_volume = volume_set_command;
 	commands->set_masking = mask_set_command;
 	commands->unlock = volume_unlock;
@@ -155,6 +159,10 @@ void app_main(void) {
     xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
 
 	status_task_params_t *params = malloc(sizeof(*params));
+	if(params == NULL){
+		ESP_LOGE(TAG, "Failed to allocate memory for status_task_params_t");
+		return;
+	}
 	params->node_id     = node_id;
 	params->is_speech   = is_afe_speech;
 	params->get_volume  = get_volume;

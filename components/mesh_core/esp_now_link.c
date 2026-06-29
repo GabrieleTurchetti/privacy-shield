@@ -90,12 +90,14 @@ static void on_mesh_packet(const uint8_t *src_mac, const void *data, size_t len)
             break;
         case MESH_PKT_ACK:
             ESP_LOGD(LOG_TAG_DISCOVERY, "ACK from node %u", hdr->src_id);
+            mesh_lock();
             global_ack_counter++;
             if (rolling_window[rolling_ack] > 0) {
                 rolling_window[rolling_ack] = 0;
                 rolling_ack_counter++;
             }
             rolling_ack = (rolling_ack + 1) % MESH_ACK_ROLLING_WINDOW_SIZE;
+            mesh_unlock();
             break;
 
         default:
@@ -308,12 +310,14 @@ esp_err_t mesh_send_status(void *arg){
     status.masking_active = params->is_speech() /* read from VAD state */;
     status.volume = params->get_volume() /* read from current volume */;
     status.battery_pct = params->get_battery();  // placeholder, real sensor later
+    int count = mesh_discovery_count();
+    mesh_lock();
     int entries = (rolling_index - rolling_ack + MESH_ACK_ROLLING_WINDOW_SIZE) % MESH_ACK_ROLLING_WINDOW_SIZE;
     if (entries == 0) entries = 1;  // avoid divide by zero
     status.delivery_ratio = (float)rolling_ack_counter / (float)entries;
     status.packet_loss_rate = 1.0f - status.delivery_ratio;
     status.uptime_s = xTaskGetTickCount() * portTICK_PERIOD_MS / 1000;
-    for (int i = 0; i < mesh_discovery_count(); i++) {
+    for (int i = 0; i < count; i++) {
         int prev = (rolling_ack == 0) ? (MESH_ACK_ROLLING_WINDOW_SIZE - 1) : (rolling_ack - 1);
         if (rolling_index == prev && rolling_window[rolling_ack] == 1) {
             rolling_window[rolling_ack] = 0;
@@ -323,6 +327,7 @@ esp_err_t mesh_send_status(void *arg){
         rolling_window[rolling_index % MESH_ACK_ROLLING_WINDOW_SIZE] = 1;
         rolling_index = (rolling_index + 1) % MESH_ACK_ROLLING_WINDOW_SIZE;
     }
+    mesh_unlock();
     return mesh_broadcast(&status, sizeof(status));
 }
 

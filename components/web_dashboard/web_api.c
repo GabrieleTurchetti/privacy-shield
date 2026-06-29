@@ -85,6 +85,19 @@ void web_dashboard_update_status(const mesh_status_pkt_t *status,
 /*  JSON helpers                                                               */
 /* -------------------------------------------------------------------------- */
 
+// Returns false if the text didn't fit (caller should stop appending).
+static bool json_appendf(char *buf, size_t buf_size, int *offset,
+                         const char *fmt, ...) {
+    if (*offset < 0 || (size_t)*offset >= buf_size) return false;
+    va_list args;
+    va_start(args, fmt);
+    int n = vsnprintf(buf + *offset, buf_size - *offset, fmt, args);
+    va_end(args);
+    if (n < 0 || (size_t)n >= buf_size - *offset) return false;  // truncated
+    *offset += n;
+    return true;
+}
+
 static void json_append_nodes(char *buf, size_t buf_size) {
     if (s_cache_mutex == NULL) {
         snprintf(buf, buf_size, "[]");
@@ -99,7 +112,7 @@ static void json_append_nodes(char *buf, size_t buf_size) {
     bool first = true;
     int offset = 0;
 
-    offset += snprintf(buf + offset, buf_size - offset, "[");
+    json_appendf(buf, buf_size, &offset, "[");
 
     for (int i = 0; i < MESH_MAX_NEIGHBORS; i++) {
         if (!mesh->neighbors[i].active) continue;
@@ -129,13 +142,9 @@ static void json_append_nodes(char *buf, size_t buf_size) {
         snprintf(mac_str, sizeof(mac_str), MACSTR,
                  MAC2STR(mesh->neighbors[i].mac));
 
-        if (!first) {
-            offset += snprintf(buf + offset, buf_size - offset, ",");
-        }
+        if (!first && !json_appendf(buf, buf_size, &offset, ",")) break;
         first = false;
-
-        offset += snprintf(buf + offset, buf_size - offset,
-            "{"
+        if (!json_appendf(buf, buf_size, &offset, "{"
             "\"node_id\":%u,"
             "\"mac\":\"%s\","
             "\"online\":true,"
@@ -143,15 +152,15 @@ static void json_append_nodes(char *buf, size_t buf_size) {
             "\"volume\":%u,"
             "\"battery_pct\":%u,"
             "\"uptime_s\":%lu"
-            "}",
-            nid, mac_str,
+            "}", nid, mac_str,
             has_status ? (mask ? "true" : "false") : "false",
             has_status ? vol : 0,
             has_status ? batt : 0,
-            (unsigned long)(has_status ? uptime : 0));
+            (unsigned long)(has_status ? uptime : 0)))
+            break;
     }
 
-    offset += snprintf(buf + offset, buf_size - offset, "]");
+    json_appendf(buf, buf_size, &offset, "]");
 
     mesh_unlock();
     xSemaphoreGive(s_cache_mutex);
@@ -229,7 +238,7 @@ static void send_command_to_all(mesh_command_t cmd, uint8_t value) {
 /* -------------------------------------------------------------------------- */
 
 esp_err_t api_nodes_get_handler(httpd_req_t *req) {
-    char buf[2048];
+    char buf[3072];
     json_append_nodes(buf, sizeof(buf));
     httpd_resp_set_hdr(req, "Cache-Control", "no-cache, no-store, must-revalidate");
     httpd_resp_set_type(req, "application/json");
@@ -270,13 +279,9 @@ esp_err_t api_node_volume_post_handler(httpd_req_t *req) {
 
     /* Read query string: ?level=50 */
     char query[32] = {0};
-    if (req->content_len > 0 && req->content_len < sizeof(query)) {
-        httpd_req_get_url_query_str(req, query, req->content_len + 1);
-    }
-
     char level_str[8] = {0};
     int level = 50; /* default */
-    if (httpd_query_key_value(query, "level", level_str, sizeof(level_str)) == ESP_OK) {
+    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK && httpd_query_key_value(query, "level", level_str, sizeof(level_str)) == ESP_OK)  {
         level = atoi(level_str);
         if (level < 0) level = 0;
         if (level > 100) level = 100;

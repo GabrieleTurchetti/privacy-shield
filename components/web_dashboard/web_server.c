@@ -78,6 +78,8 @@ esp_err_t web_server_init(void) {
     config.max_uri_handlers = 16;
     config.lru_purge_enable = true;
     config.stack_size = 10240;  /* Default 4096 overflows — dashboard HTML is ~4.5KB */
+    config.uri_match_fn = httpd_uri_match_wildcard;
+
 
     ESP_LOGI(TAG, "Starting HTTP server on port %d...", config.server_port);
 
