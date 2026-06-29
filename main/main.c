@@ -78,9 +78,9 @@ static void log_levels_init(void) {
 #endif
 
 #ifdef CONFIG_PRIVACY_SHIELD_LOG_BATTERY
-    esp_log_level_set(LOG_TAG_BATTERY, ESP_LOG_INFO);
+    esp_log_level_set(LOG_TAG_BATTERY, ESP_LOG_DEBUG);
 #else
-    esp_log_level_set(LOG_TAG_BATTERY, ESP_LOG_INFO);
+    esp_log_level_set(LOG_TAG_BATTERY, ESP_LOG_WARN);
 #endif
 
 	/* Main always at INFO */
@@ -160,20 +160,8 @@ void app_main(void) {
 	params->get_volume  = get_volume;
 	params->get_battery = stub_100;
 	xTaskCreate(status_task, "status", 4096, params, 1, NULL);
-    ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ node %u, " MACSTR,
-             DEFAULT_NODE_ID, MAC2STR(mesh_get_state()->my_mac));
-
-	/* ── Audio ───────────────────────────────────────────────── */
-	audio_input_queue = xQueueCreate(1, AFE_FEED_SAMPLES * sizeof(int16_t));
-	if (audio_input_queue == NULL) {
-		ESP_LOGE(TAG, "  [!!] Audio queue creation failed!");
-		return;
-	}
-	audio_output_queue = xQueueCreate(2, AFE_FEED_SAMPLES * sizeof(int16_t));
-	if (audio_output_queue == NULL) {
-		ESP_LOGE(TAG, "  [!!] Noise queue creation failed!");
-		return;
-	}
+	ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ node %u, " MACSTR,
+             node_id, MAC2STR(mesh_get_state()->my_mac));
 
 	/* ── Micriophone ──────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "  [..] Initializing I2S Microphone...");
@@ -186,9 +174,9 @@ void app_main(void) {
 
 	/* ── Amplifier ──────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "  [..] Initializing I2S Amplifier...");
-	audio_hal_speaker_init(); // We should decide a standard: Function do o do
-							  // not return esp_err_t? For now, it just logs and
-							  // continues
+	audio_hal_speaker_init();
+	ESP_LOGI(TAG, "  [OK] I2S Amplifier ...... 16 kHz, 32-bit, Mono");
+
 	/* ── AFE ────────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "  [..] Initializing AFE Pipeline...");
 	esp_err_t afe_err = audio_afe_init("MR");
@@ -213,7 +201,6 @@ void app_main(void) {
 		ESP_LOGE(TAG, "  [!!] Noise queue creation failed!");
 		return;
 	}
-	ESP_LOGI(TAG, "  [OK] I2S Amplifier ...... 16 kHz, 32-bit, Mono");
 	xTaskCreatePinnedToCore(audio_hal_mic_read_task, "Mic_Read", 4096, NULL, 5,
 							NULL, 1);
 
