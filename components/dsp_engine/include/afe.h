@@ -43,6 +43,8 @@ bool is_afe_speech(void);
 
 int afe_get_chunksize(void);
 
+int afe_get_channels(void);
+
 /**
  * Feed one frame of raw int16 PCM into the AFE.
  *

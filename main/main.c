@@ -177,12 +177,12 @@ void app_main(void) {
 
 	/* ── Header ──────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "+------------------------------------------+");
-	ESP_LOGI(TAG, "|        PRIVACY SHIELD v0.301             |");
+	ESP_LOGI(TAG, "|        PRIVACY SHIELD v0.305             |");
 	ESP_LOGI(TAG, "|        Node %u   |   ESP32-S3            |",
 			 DEFAULT_NODE_ID);
 	ESP_LOGI(TAG, "+------------------------------------------+");
 
-	vTaskDelay(pdMS_TO_TICKS(200));
+	vTaskDelay(pdMS_TO_TICKS(1));
 
 	/* ── Mesh ───────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
@@ -250,6 +250,6 @@ void app_main(void) {
 
 	/* ── Footer ─────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "+------------------------------------------+");
-	ESP_LOGI(TAG, "|      SYSTEM READY! Running v0.301        |");
+	ESP_LOGI(TAG, "|      SYSTEM READY! Running v0.305        |");
 	ESP_LOGI(TAG, "+------------------------------------------+");
 }

@@ -166,6 +166,10 @@ esp_err_t audio_afe_init(const char *input_format) {
 	int fetch_channels = afe_handle->get_fetch_channel_num(afe_data);
 
 	// Allocating Buffers
+	int feed_chunksize = get_feed_chunksize();
+	int fetch_chunksize = get_feed_chunksize();
+	int feed_channels = get_feed_channels();
+
 	microphone_buffer = (int16_t *)malloc(feed_chunksize * sizeof(int16_t));
 
 	if (valid_speaker) {
@@ -173,6 +177,9 @@ esp_err_t audio_afe_init(const char *input_format) {
 		feed_buffer =
 			(int16_t *)malloc(feed_chunksize * feed_channels * sizeof(int16_t));
 	}
+
+	memset(microphone_buffer, 0, feed_chunksize * sizeof(int16_t));
+	memset(speaker_buffer, 0, feed_chunksize * sizeof(int16_t));
 
 	// Track VAD state change to avoid spamming the log console
 	AFE_STATE = AUDIO_AFE_VAD_SILENCE;
@@ -182,7 +189,7 @@ esp_err_t audio_afe_init(const char *input_format) {
 	ESP_LOGI(TAG, "feed_chunksize=%d, feed_channels=%d", feed_chunksize,
 			 feed_channels);
 	ESP_LOGI(TAG, "fetch_chunksize=%d, fetch_channels=%d", fetch_chunksize,
-			 fetch_channels);
+			 get_fetch_channels());
 	ESP_LOGI(TAG, "VAD enabled");
 	ESP_LOGI(TAG, "AEC %s", valid_speaker ? "enabled" : "disabled");
 
@@ -223,8 +230,6 @@ void audio_afe_feed(void *pvParameters) {
 			if (ret < 0) {
 				ESP_LOGE(TAG, "AFE feed returned: %d", ret);
 			}
-
-			vTaskDelay(pdMS_TO_TICKS(1));
 		}
 	}
 }
@@ -306,9 +311,23 @@ void audio_afe_fetch(void *pvParameters) {
 
 bool is_afe_speech() { return AFE_STATE == AUDIO_AFE_VAD_SPEECH; }
 
-int afe_get_chunksize() { return afe_handle->get_feed_chunksize(afe_data); }
+int afe_get_chunksize() {
+	if (afe_data == NULL || afe_handle == NULL) {
+		ESP_LOGE(TAG,
+				 "AFE not initialized, can't fetch chunksize will return 0");
+		return 0;
+	}
+	return afe_handle->get_feed_chunksize(afe_data);
+}
 
-int afe_get_channels() { return afe_handle->get_feed_channel_num(afe_data); }
+int afe_get_channels() {
+	if (afe_data == NULL || afe_handle == NULL) {
+		ESP_LOGE(TAG, "AFE not initialized, can't get feed channels");
+		return 0;
+	}
+	return afe_handle->get_feed_channel_num(afe_data);
+}
+
 
 void audio_afe_destroy(void) {
 	if (afe_handle != NULL && afe_data != NULL) {
