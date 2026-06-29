@@ -64,11 +64,22 @@ typedef struct __attribute__((packed)) {
     bool     masking_active;
     uint8_t  volume;         /* 0-100 */
     uint8_t  battery_pct;    /* 0-100 */
+    float delivery_ratio;  /* ratio of ACKs received vs STATUS sent (0.0-1.0) */
+    float packet_loss_rate; /* (0.0-1.0) */
     uint32_t uptime_s;       /* seconds since boot */
 } mesh_status_pkt_t;
 
 //Used to pass web dashboard refresh method
 typedef void (*mesh_status_callback_t)(const mesh_status_pkt_t *status, const uint8_t *mac);
+
+/* -------------------------------------------------------------------------- */
+/*  ACK packet (only for status messages)                                     */
+/* -------------------------------------------------------------------------- */
+
+typedef struct __attribute__((packed)) {
+    mesh_header_t header;
+    uint32_t ack_timestamp_ms;    // which STATUS this ACK is for
+} mesh_ack_pkt_t;
 
 /* -------------------------------------------------------------------------- */
 /*  COMMAND packet (hub → node)                                               */
@@ -151,6 +162,20 @@ esp_err_t mesh_broadcast(const void *data, size_t len);
  * @brief Broadcast a HELLO packet (call periodically, e.g. every 10s).
  */
 esp_err_t mesh_send_hello(void);
+
+/**
+ * @brief Send ACK packet (ACK are sent only for status messages).
+ * 
+ * @param mac   Destination MAC (the node that sent the STATUS).
+ */
+esp_err_t mesh_send_status(void *arg);
+
+/**
+ * @brief Send ACK packet (ACK are sent only for status messages).
+ * 
+ * @param mac   Destination MAC (the node that sent the STATUS).
+ */
+esp_err_t mesh_send_ack(const uint8_t *mac);
 
 /**
  * @brief Get a pointer to the global mesh state (for dashboards, etc.).

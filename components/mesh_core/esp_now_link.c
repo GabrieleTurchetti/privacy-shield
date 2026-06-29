@@ -14,6 +14,7 @@
 #include "log_tags.h"
 #include "mesh_core.h"
 
+#define MESH_ACK_ROLLING_WINDOW_SIZE 100
 static const char *TAG = LOG_TAG_MESH_CORE;
 
 /* -------------------------------------------------------------------------- */
@@ -26,6 +27,12 @@ static uint8_t node_id = 0;
 static mesh_status_callback_t s_status_callback;
 static volume_command_cb *s_volume_command_callback;
 static SemaphoreHandle_t s_mesh_mutex = NULL;
+static int global_ack_counter = 0;
+
+static int rolling_window [MESH_ACK_ROLLING_WINDOW_SIZE] = {0};
+static int rolling_index = 0;
+static int rolling_ack = 0;
+static int rolling_ack_counter = 0;
 
 /* -------------------------------------------------------------------------- */
 /* Packet received callback — handle incoming mesh packets,                   */
@@ -47,6 +54,7 @@ static void on_mesh_packet(const uint8_t *src_mac, const void *data, size_t len)
                          status->header.src_id, status->masking_active ? "ON" : "OFF",
                          status->volume, status->battery_pct);
                 if (s_status_callback) s_status_callback(status, src_mac);
+                mesh_send_ack(src_mac);  // Send ACK back to the node
             }
             break;
 
@@ -56,30 +64,38 @@ static void on_mesh_packet(const uint8_t *src_mac, const void *data, size_t len)
                 ESP_LOGI(LOG_TAG_DISCOVERY, "COMMAND from node %u: cmd=%u val=%u", cmd->header.src_id,
                          cmd->command, cmd->value);
                 if (s_volume_command_callback != NULL) {
-                switch (cmd->command)
-                {
-                case MESH_CMD_MUTE:
-                    s_volume_command_callback->set_masking(0);
-                    break;
-                case MESH_CMD_UNMUTE:
-                    s_volume_command_callback->set_masking(1);
-                    break;
-                case MESH_CMD_SET_VOLUME:
-                    s_volume_command_callback->set_volume(cmd->value);
-                    break;
-                case MESH_CMD_REBOOT:
-                    vTaskDelay(pdMS_TO_TICKS(100));  // let log flush
-                    esp_restart();
-                    break;
-                case MESH_CMD_UNLOCK:
-                    s_volume_command_callback->unlock();
-                    break;
-                default:
-                    break;
+                    switch (cmd->command) {
+                    case MESH_CMD_MUTE:
+                        s_volume_command_callback->set_masking(0);
+                        break;
+                    case MESH_CMD_UNMUTE:
+                        s_volume_command_callback->set_masking(1);
+                        break;
+                    case MESH_CMD_SET_VOLUME:
+                        s_volume_command_callback->set_volume(cmd->value);
+                        break;
+                    case MESH_CMD_REBOOT:
+                        vTaskDelay(pdMS_TO_TICKS(100));  // let log flush
+                        esp_restart();
+                        break;
+                    case MESH_CMD_UNLOCK:
+                        s_volume_command_callback->unlock();
+                        break;
+                    default:
+                        break;
+                    }
                 }
-            }
                 
             }
+            break;
+        case MESH_PKT_ACK:
+            ESP_LOGD(LOG_TAG_DISCOVERY, "ACK from node %u", hdr->src_id);
+            global_ack_counter++;
+            if (rolling_window[rolling_ack] > 0) {
+                rolling_window[rolling_ack] = 0;
+                rolling_ack_counter++;
+            }
+            rolling_ack = (rolling_ack + 1) % MESH_ACK_ROLLING_WINDOW_SIZE;
             break;
 
         default:
@@ -268,6 +284,46 @@ esp_err_t mesh_send_hello(void) {
 
     ESP_LOGD(TAG, "Sending HELLO (node %u)", s_mesh.my_id);
     return mesh_broadcast(&pkt, sizeof(pkt));
+}
+
+
+esp_err_t mesh_send_ack(const uint8_t *mac) {
+    mesh_ack_pkt_t pkt = {0};
+    pkt.header.type        = MESH_PKT_ACK;
+    pkt.header.src_id      = s_mesh.my_id;
+    pkt.header.timestamp_ms = pdTICKS_TO_MS(xTaskGetTickCount());
+    pkt.ack_timestamp_ms = pkt.header.timestamp_ms;
+
+    ESP_LOGD(TAG, "Sending ACK (node %u)", s_mesh.my_id);
+    return mesh_send(mac, &pkt, sizeof(pkt));
+}
+
+esp_err_t mesh_send_status(void *arg){
+    status_task_params_t *params = (status_task_params_t *)arg;
+    TickType_t last_wake = xTaskGetTickCount();
+    mesh_status_pkt_t status = {0};
+    status.header.type = MESH_PKT_STATUS;
+    status.header.src_id = params->node_id;
+    status.header.timestamp_ms = pdTICKS_TO_MS(xTaskGetTickCount());
+    status.masking_active = params->is_speech() /* read from VAD state */;
+    status.volume = params->get_volume() /* read from current volume */;
+    status.battery_pct = params->get_battery();  // placeholder, real sensor later
+    int entries = (rolling_index - rolling_ack + MESH_ACK_ROLLING_WINDOW_SIZE) % MESH_ACK_ROLLING_WINDOW_SIZE;
+    if (entries == 0) entries = 1;  // avoid divide by zero
+    status.delivery_ratio = (float)rolling_ack_counter / (float)entries;
+    status.packet_loss_rate = 1.0f - status.delivery_ratio;
+    status.uptime_s = xTaskGetTickCount() * portTICK_PERIOD_MS / 1000;
+    for (int i = 0; i < mesh_discovery_count(); i++) {
+        int prev = (rolling_ack == 0) ? (MESH_ACK_ROLLING_WINDOW_SIZE - 1) : (rolling_ack - 1);
+        if (rolling_index == prev && rolling_window[rolling_ack] == 1) {
+            rolling_window[rolling_ack] = 0;
+            rolling_ack_counter--;
+            rolling_ack = (rolling_ack + 1) % MESH_ACK_ROLLING_WINDOW_SIZE;
+        }
+        rolling_window[rolling_index % MESH_ACK_ROLLING_WINDOW_SIZE] = 1;
+        rolling_index = (rolling_index + 1) % MESH_ACK_ROLLING_WINDOW_SIZE;
+    }
+    return mesh_broadcast(&status, sizeof(status));
 }
 
 const mesh_state_t *mesh_get_state(void) {

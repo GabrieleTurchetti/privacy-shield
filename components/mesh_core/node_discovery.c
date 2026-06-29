@@ -156,16 +156,7 @@ void status_task(void *arg) {
     status_task_params_t *params = (status_task_params_t *)arg;
     TickType_t last_wake = xTaskGetTickCount();
     while (1) {
-        mesh_status_pkt_t status = {0};
-        status.header.type = MESH_PKT_STATUS;
-        status.header.src_id = params->node_id;
-        status.header.timestamp_ms = pdTICKS_TO_MS(xTaskGetTickCount());
-        status.masking_active = params->is_speech() /* read from VAD state */;
-        status.volume = params->get_volume() /* read from current volume */;
-        status.battery_pct = params->get_battery();  // placeholder, real sensor later
-        status.uptime_s = xTaskGetTickCount() * portTICK_PERIOD_MS / 1000;
-
-        mesh_broadcast(&status, sizeof(status));
+        mesh_send_status(arg);
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(5000));
     }
 }
