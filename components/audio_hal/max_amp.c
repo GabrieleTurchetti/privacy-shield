@@ -49,14 +49,15 @@ void audio_hal_speaker_init(void) {
 }
 
 void audio_hal_speaker_task(void *pvParameters) {
-	int16_t buffer[AFE_FEED_SAMPLES];
+	int feed_chunksize = afe_feed_chunksize();
+	int16_t buffer[feed_chunksize];
 	size_t bytes_written;
 
 	while (1) {
 		xQueueReceive(audio_output_queue, buffer, portMAX_DELAY);
 		// buffer is already scaled — volume was applied by the AFE task
 
-		i2s_channel_write(tx_chan, buffer, AFE_FEED_SAMPLES * sizeof(int16_t),
+		i2s_channel_write(tx_chan, buffer, feed_chunksize * sizeof(int16_t),
 						  &bytes_written, portMAX_DELAY);
 	}
 }
