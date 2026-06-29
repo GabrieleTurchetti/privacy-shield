@@ -55,8 +55,8 @@ esp_err_t audio_hal_mic_init() { // TODO: If this always returns ESP_OK, should
 }
 
 void audio_hal_mic_read_task(void *pvParameters) {
-	int32_t raw_samples[get_feed_chunksize()];
-	int16_t ai_buffer[get_feed_chunksize()];
+	int32_t raw_samples[afe_feed_chunksize()];
+	int16_t ai_buffer[afe_feed_chunksize()];
 	int32_t dc_offset = 0;
 	bool is_calibrated = false;
 	int64_t calibration_sum = 0;

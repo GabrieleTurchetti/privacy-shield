@@ -216,7 +216,7 @@ void app_main(void) {
 		return;
 	}
 
-	int feed_chunksize = afe_get_chunksize();
+	int feed_chunksize = afe_feed_chunksize();
 	ESP_LOGI(TAG,
 			 "  [OK] AFE Pipeline ........ VADNet1 Medium, %d samples/chunk",
 			 feed_chunksize);

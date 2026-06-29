@@ -41,9 +41,13 @@ esp_err_t audio_afe_init(const char *input_format);
 
 bool is_afe_speech(void);
 
-int afe_get_chunksize(void);
+int afe_feed_chunksize(void);
 
-int afe_get_channels(void);
+int afe_feed_channels(void);
+
+int afe_fetch_chunksize(void);
+
+int afe_fetch_channels(void);
 
 /**
  * Feed one frame of raw int16 PCM into the AFE.
