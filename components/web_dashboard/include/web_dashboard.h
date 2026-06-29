@@ -8,6 +8,12 @@ extern "C" {
 #endif
 
 /**
+ * @brief Initialize the web dashboard internal state (must be called before
+ *        mesh_init() in Hub mode).
+ */
+void web_dashboard_init(void);
+
+/**
  * @brief Configure and start the WiFi SoftAP.
  *
  * Creates an open access point named "PrivacyShield" on 192.168.4.1.

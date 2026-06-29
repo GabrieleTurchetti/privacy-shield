@@ -6,6 +6,9 @@
 #include "mesh_core.h"
 #include "esp_mac.h"
 
+#define MESH_LOCK()    mesh_lock()
+#define MESH_UNLOCK()  mesh_unlock()
+
 static const char *TAG = LOG_TAG_DISCOVERY;
 
 /* Forward-declare the internal mesh state (defined in esp_now_link.c).
@@ -19,6 +22,8 @@ extern mesh_state_t s_mesh;
 void mesh_discovery_heard(const uint8_t *mac, uint8_t node_id) {
     uint32_t now = pdTICKS_TO_MS(xTaskGetTickCount());
 
+    MESH_LOCK();
+
     /* Look for an existing entry for this MAC */
     for (int i = 0; i < MESH_MAX_NEIGHBORS; i++) {
         if (s_mesh.neighbors[i].active &&
@@ -26,6 +31,7 @@ void mesh_discovery_heard(const uint8_t *mac, uint8_t node_id) {
             /* Existing neighbor — update last_heard */
             s_mesh.neighbors[i].last_heard_ms = now;
             s_mesh.neighbors[i].node_id = node_id; /* May have changed */
+            MESH_UNLOCK();
             return;
         }
     }
@@ -40,6 +46,7 @@ void mesh_discovery_heard(const uint8_t *mac, uint8_t node_id) {
 
             ESP_LOGI(TAG, "New neighbor: node_id=%u, MAC=" MACSTR,
                      node_id, MAC2STR(mac));
+            MESH_UNLOCK();
             return;
         }
     }
@@ -61,6 +68,8 @@ void mesh_discovery_heard(const uint8_t *mac, uint8_t node_id) {
     s_mesh.neighbors[oldest_idx].node_id = node_id;
     s_mesh.neighbors[oldest_idx].last_heard_ms = now;
     s_mesh.neighbors[oldest_idx].active = true;
+
+    MESH_UNLOCK();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -70,6 +79,7 @@ void mesh_discovery_heard(const uint8_t *mac, uint8_t node_id) {
 void mesh_discovery_prune(void) {
     uint32_t now = pdTICKS_TO_MS(xTaskGetTickCount());
 
+    MESH_LOCK();
     for (int i = 0; i < MESH_MAX_NEIGHBORS; i++) {
         if (!s_mesh.neighbors[i].active) continue;
 
@@ -81,6 +91,7 @@ void mesh_discovery_prune(void) {
             s_mesh.neighbors[i].active = false;
         }
     }
+    MESH_UNLOCK();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -89,9 +100,11 @@ void mesh_discovery_prune(void) {
 
 int mesh_discovery_count(void) {
     int count = 0;
+    MESH_LOCK();
     for (int i = 0; i < MESH_MAX_NEIGHBORS; i++) {
         if (s_mesh.neighbors[i].active) count++;
     }
+    MESH_UNLOCK();
     return count;
 }
 
@@ -100,12 +113,16 @@ int mesh_discovery_count(void) {
 /* -------------------------------------------------------------------------- */
 
 const mesh_neighbor_t *mesh_discovery_find_mac(const uint8_t *mac) {
+    MESH_LOCK();
     for (int i = 0; i < MESH_MAX_NEIGHBORS; i++) {
         if (s_mesh.neighbors[i].active &&
             memcmp(s_mesh.neighbors[i].mac, mac, ESP_NOW_ETH_ALEN) == 0) {
-            return &s_mesh.neighbors[i];
+            const mesh_neighbor_t *result = &s_mesh.neighbors[i];
+            MESH_UNLOCK();
+            return result;
         }
     }
+    MESH_UNLOCK();
     return NULL;
 }
 

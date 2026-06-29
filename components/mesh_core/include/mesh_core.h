@@ -158,6 +158,19 @@ esp_err_t mesh_send_hello(void);
 const mesh_state_t *mesh_get_state(void);
 
 /**
+ * @brief Lock the mesh state mutex.
+ *
+ * Must be held while reading/writing the neighbor table or other mesh state.
+ * Always pair with mesh_unlock().
+ */
+void mesh_lock(void);
+
+/**
+ * @brief Unlock the mesh state mutex.
+ */
+void mesh_unlock(void);
+
+/**
  * @brief Callback type: fired when a packet is received.
  * @param src_mac  Source MAC address.
  * @param data     Packet payload (starts with mesh_header_t).

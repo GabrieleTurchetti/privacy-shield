@@ -103,6 +103,9 @@ void app_main(void) {
 
     vTaskDelay(pdMS_TO_TICKS(200));
 
+    /* ── Web Dashboard state ── */
+    web_dashboard_init();
+
     /* ── Mesh (ESP-NOW) — receives STATUS from nodes ── */
     ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
     ESP_ERROR_CHECK(mesh_init(WIFI_MODE_AP, web_dashboard_update_status, NULL));

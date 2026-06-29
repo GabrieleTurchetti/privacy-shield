@@ -2,6 +2,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
+#include "freertos/semphr.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
 #include "esp_event.h"
@@ -24,6 +25,7 @@ static mesh_recv_callback_t s_user_callback = NULL;
 static uint8_t node_id = 0;
 static mesh_status_callback_t s_status_callback;
 static volume_command_cb *s_volume_command_callback;
+static SemaphoreHandle_t s_mesh_mutex = NULL;
 
 /* -------------------------------------------------------------------------- */
 /* Packet received callback — handle incoming mesh packets,                   */
@@ -53,27 +55,29 @@ static void on_mesh_packet(const uint8_t *src_mac, const void *data, size_t len)
                 const mesh_command_pkt_t *cmd = (const mesh_command_pkt_t *)data;
                 ESP_LOGI(LOG_TAG_DISCOVERY, "COMMAND from node %u: cmd=%u val=%u", cmd->header.src_id,
                          cmd->command, cmd->value);
+                if (s_volume_command_callback != NULL) {
                 switch (cmd->command)
                 {
                 case MESH_CMD_MUTE:
-                    s_volume_command_callback ->set_masking(0);
+                    s_volume_command_callback->set_masking(0);
                     break;
                 case MESH_CMD_UNMUTE:
-                    s_volume_command_callback ->set_masking(1);
+                    s_volume_command_callback->set_masking(1);
                     break;
                 case MESH_CMD_SET_VOLUME:
-                    s_volume_command_callback ->set_volume(cmd->value);
+                    s_volume_command_callback->set_volume(cmd->value);
                     break;
                 case MESH_CMD_REBOOT:
                     vTaskDelay(pdMS_TO_TICKS(100));  // let log flush
                     esp_restart();
                     break;
                 case MESH_CMD_UNLOCK:
-                    s_volume_command_callback -> unlock();
+                    s_volume_command_callback->unlock();
                     break;
                 default:
                     break;
                 }
+            }
                 
             }
             break;
@@ -205,12 +209,20 @@ esp_err_t mesh_init(wifi_mode_t wifi_mode, mesh_status_callback_t status_cb, vol
     ESP_LOGI(TAG, "Mesh initialized — node_id=%u, MAC=" MACSTR,
              node_id, MAC2STR(s_mesh.my_mac));
 
-    /* Send initial HELLO to announce presence */
-    mesh_send_hello();
-    //we also register callback during init
-    mesh_register_recv_callback(on_mesh_packet);
+    s_mesh_mutex = xSemaphoreCreateMutex();
+    if (s_mesh_mutex == NULL) {
+        ESP_LOGE(TAG, "Failed to create mesh mutex");
+        return ESP_FAIL;
+    }
+
     s_status_callback = status_cb;
     s_volume_command_callback = command_cb;
+
+    //we also register callback during init
+    mesh_register_recv_callback(on_mesh_packet);
+
+    /* Send initial HELLO to announce presence */
+    mesh_send_hello();
 
     return ESP_OK;
 }
@@ -222,6 +234,18 @@ uint8_t get_node_id() {
         node_id = (mac[3] ^ mac[4] ^ mac[5]) % 254 + 1;
     }
     return node_id;
+}
+
+void mesh_lock(void) {
+    if (s_mesh_mutex != NULL) {
+        xSemaphoreTake(s_mesh_mutex, portMAX_DELAY);
+    }
+}
+
+void mesh_unlock(void) {
+    if (s_mesh_mutex != NULL) {
+        xSemaphoreGive(s_mesh_mutex);
+    }
 }
 
 esp_err_t mesh_send(const uint8_t *mac, const void *data, size_t len) {

@@ -9,6 +9,7 @@
 //#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "log_tags.h"
 #include "mesh_core.h"
 
@@ -32,13 +33,24 @@ typedef struct {
 #define MAX_CACHED_NODES 16
 
 static node_status_cache_t s_node_cache[MAX_CACHED_NODES];
+static SemaphoreHandle_t s_cache_mutex = NULL;
+
+void web_dashboard_init(void) {
+    if (s_cache_mutex == NULL) {
+        s_cache_mutex = xSemaphoreCreateMutex();
+    }
+}
 
 void web_dashboard_update_status(const mesh_status_pkt_t *status,
                                  const uint8_t *mac) {
-    if (status == NULL || mac == NULL) return;
+    if (s_cache_mutex == NULL || status == NULL || mac == NULL) {
+        return;
+    }
 
     uint8_t node_id = status->header.src_id;
     uint32_t now = pdTICKS_TO_MS(xTaskGetTickCount());
+
+    xSemaphoreTake(s_cache_mutex, portMAX_DELAY);
 
     for (int i = 0; i < MAX_CACHED_NODES; i++) {
         if (s_node_cache[i].active && s_node_cache[i].node_id == node_id) {
@@ -47,6 +59,7 @@ void web_dashboard_update_status(const mesh_status_pkt_t *status,
             s_node_cache[i].battery_pct   = status->battery_pct;
             s_node_cache[i].uptime_s      = status->uptime_s;
             s_node_cache[i].last_update_ms = now;
+            xSemaphoreGive(s_cache_mutex);
             return;
         }
     }
@@ -61,9 +74,11 @@ void web_dashboard_update_status(const mesh_status_pkt_t *status,
             s_node_cache[i].uptime_s      = status->uptime_s;
             s_node_cache[i].last_update_ms = now;
             s_node_cache[i].active        = true;
+            xSemaphoreGive(s_cache_mutex);
             return;
         }
     }
+    xSemaphoreGive(s_cache_mutex);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -71,8 +86,16 @@ void web_dashboard_update_status(const mesh_status_pkt_t *status,
 /* -------------------------------------------------------------------------- */
 
 static void json_append_nodes(char *buf, size_t buf_size) {
+    if (s_cache_mutex == NULL) {
+        snprintf(buf, buf_size, "[]");
+        return;
+    }
+
+    /* Take locks in fixed order to avoid deadlock: cache first, then mesh */
+    xSemaphoreTake(s_cache_mutex, portMAX_DELAY);
+    mesh_lock();
+
     const mesh_state_t *mesh = mesh_get_state();
-    uint32_t now = pdTICKS_TO_MS(xTaskGetTickCount());
     bool first = true;
     int offset = 0;
 
@@ -129,6 +152,9 @@ static void json_append_nodes(char *buf, size_t buf_size) {
     }
 
     offset += snprintf(buf + offset, buf_size - offset, "]");
+
+    mesh_unlock();
+    xSemaphoreGive(s_cache_mutex);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -155,21 +181,25 @@ static int extract_node_id(const char *uri) {
 /*  Mesh helpers                                                               */
 /* -------------------------------------------------------------------------- */
 
-static const uint8_t *node_mac_by_id(uint8_t node_id) {
+static bool node_mac_by_id(uint8_t node_id, uint8_t *out_mac) {
+    mesh_lock();
     const mesh_state_t *mesh = mesh_get_state();
     for (int i = 0; i < MESH_MAX_NEIGHBORS; i++) {
         if (mesh->neighbors[i].active &&
             mesh->neighbors[i].node_id == node_id) {
-            return mesh->neighbors[i].mac;
+            memcpy(out_mac, mesh->neighbors[i].mac, ESP_NOW_ETH_ALEN);
+            mesh_unlock();
+            return true;
         }
     }
-    return NULL;
+    mesh_unlock();
+    return false;
 }
 
 static void send_command_to_node(uint8_t node_id, mesh_command_t cmd,
                                  uint8_t value) {
-    const uint8_t *mac = node_mac_by_id(node_id);
-    if (mac == NULL) {
+    uint8_t mac[ESP_NOW_ETH_ALEN];
+    if (!node_mac_by_id(node_id, mac)) {
         ESP_LOGW(TAG, "Cannot send command — node %u not found", node_id);
         return;
     }
