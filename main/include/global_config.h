@@ -24,7 +24,8 @@
 /* -------------------------------------------------------------------------- */
 /*  Node defaults                                                            */
 /* -------------------------------------------------------------------------- */
-#define DEFAULT_NODE_ID     1    /* Change per device (1–254). 0 = hub. */
+// Remove this
+//#define DEFAULT_NODE_ID     1    /* Change per device (1–254). 0 = hub. */
 
 #define PIN_BATT_STAT1  42
 #define PIN_BATT_STAT2  41 

@@ -3,11 +3,31 @@
 #include <string.h>
 #include "esp_log.h"
 #include "log_tags.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 /* -------------------------------------------------------------------------- */
 /* Public API                                                                 */
 /* -------------------------------------------------------------------------- */
+
 static const char *TAG = LOG_TAG_AUDIO_AFE;
+static bool is_volume_override = false;
+static bool is_masking_override = false;
+static bool cmd_mask = false;
+static float cmd_volume_level = 0.0f;
+static float level;
+static SemaphoreHandle_t s_volume_mutex = NULL;
+
+#define VOLUME_LOCK()    xSemaphoreTake(s_volume_mutex, portMAX_DELAY)
+#define VOLUME_UNLOCK()  xSemaphoreGive(s_volume_mutex)
+
+static void volume_ensure_mutex(void) {
+    if (s_volume_mutex == NULL) {
+        s_volume_mutex = xSemaphoreCreateMutex();
+    }
+}
+
 void volume_init(volume_state_t *vol) {
+    volume_ensure_mutex();
     vol->current = 0.0f;
     vol->attack_coeff = 0.10f;   /* 10ms  attack  (tracks voice dynamics) */
     vol->release_coeff = 0.01f;  /* 100ms  release (fast fade-out) */
@@ -58,21 +78,80 @@ void apply_volume(int16_t *buffer, int count, float level) {
 uint8_t volume_process_frame(volume_state_t *vol,
                              const int16_t *mic_in, int16_t *noise_out,
                              int count, bool *masking_active) {
+    volume_ensure_mutex();
+    VOLUME_LOCK();
+    bool vol_override = is_volume_override;
+    bool mask_override = is_masking_override;
+    float cmd_vol = cmd_volume_level;
+    bool cmd_m = cmd_mask;
+    VOLUME_UNLOCK();
+
+    if (vol_override) {
+        /* Apply to output */
+        float current_level = cmd_vol;
+        apply_volume(noise_out, count, current_level);
+        // we set command if hub sent command
+        // note: if masking_active = false, afe.c will disable the audio, setting it to false is sufficient
+        *masking_active = mask_override ? cmd_m : (current_level > 0.05f);
+
+        VOLUME_LOCK();
+        level = current_level;
+        VOLUME_UNLOCK();
+        return (uint8_t)(current_level * 100.0f);
+    }
+
     /* Measure speech level from mic */
     float rms = compute_rms(mic_in, count);
-    ESP_LOGI(TAG, "RMS: %.1f (noise floor: %.1f)", rms, vol->noise_floor);
+    //ESP_LOGI(TAG, "RMS: %.1f (noise floor: %.1f)", rms, vol->noise_floor);
 
     /* Convert to target volume (log scale, respect noise floor) */
     float target = rms_to_volume(rms, vol->noise_floor);
 
     /* Smooth transition */
-    float level = volume_ramp(vol, target);
+    float current_level = volume_ramp(vol, target);
 
     /* Apply to output */
-    apply_volume(noise_out, count, level);
+    apply_volume(noise_out, count, current_level);
 
     /* Set masking state based on meaningful volume */
-    *masking_active = (level > 0.05f);  /* >5% = actively masking */
+    *masking_active = (current_level > 0.05f);  /* >5% = actively masking */
 
-    return (uint8_t)(level * 100.0f);
+    VOLUME_LOCK();
+    level = current_level;
+    VOLUME_UNLOCK();
+
+    return (uint8_t)(current_level * 100.0f);
+}
+
+
+void volume_set_command(uint8_t value) {
+    volume_ensure_mutex();
+    VOLUME_LOCK();
+    is_volume_override = true;
+    cmd_volume_level = value / 100.0f;
+    VOLUME_UNLOCK();
+}
+
+void mask_set_command(uint8_t value) {
+    volume_ensure_mutex();
+    VOLUME_LOCK();
+    is_masking_override = true;
+    cmd_mask = value;
+    VOLUME_UNLOCK();
+}
+
+void volume_unlock() {
+    volume_ensure_mutex();
+    VOLUME_LOCK();
+    is_volume_override = false;
+    is_masking_override = false;
+    VOLUME_UNLOCK();
+}
+
+uint8_t get_volume() {
+    volume_ensure_mutex();
+    VOLUME_LOCK();
+    uint8_t v = (uint8_t)(level * 100);
+    VOLUME_UNLOCK();
+    return v;
 }

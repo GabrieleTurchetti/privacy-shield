@@ -35,7 +35,7 @@ static int16_t pink_sample(void) {
     uint32_t change_mask = counter ^ (counter + 1);
     for (int i = 0; i < PINK_OCTAVES; i++) {
         if (change_mask & (1U << i)) {
-            sources[i] = (int16_t)((esp_random() & 0x1FFFF) - 0x10000) / PINK_OCTAVES;
+            sources[i] = (int16_t)(((int32_t)(esp_random() & 0x1FFFF) - 0x10000) / PINK_OCTAVES);
         }
     }
     counter++;
