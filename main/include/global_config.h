@@ -27,6 +27,10 @@
 // Remove this
 //#define DEFAULT_NODE_ID     1    /* Change per device (1–254). 0 = hub. */
 
-#define PIN_BATT_STAT1  42
-#define PIN_BATT_STAT2  41 
-#define PIN_BATT_ADC    1
+/* -------------------------------------------------------------------------- */
+/*  Battery pins                                                              */
+/* -------------------------------------------------------------------------- */
+
+#define PIN_BATT_STAT1  GPIO_NUM_42
+#define PIN_BATT_STAT2  GPIO_NUM_41 
+#define PIN_BATT_ADC    GPIO_NUM_1
