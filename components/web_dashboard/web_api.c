@@ -247,11 +247,21 @@ esp_err_t api_nodes_get_handler(httpd_req_t *req) {
 }
 
 esp_err_t api_node_mute_post_handler(httpd_req_t *req) {
-    int node_id = extract_node_id(req->uri);
+    int node_id = 0;
+    char id_str[8] = {0};
+    char query[32] = {0};
+
+    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK &&
+        httpd_query_key_value(query, "id", id_str, sizeof(id_str)) == ESP_OK
+    ) {
+        node_id = atoi(id_str);
+    }
+
     if (node_id < 0) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid node ID");
         return ESP_FAIL;
     }
+
     send_command_to_node(node_id, MESH_CMD_MUTE, 1);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, "{\"ok\":true}");
@@ -259,11 +269,21 @@ esp_err_t api_node_mute_post_handler(httpd_req_t *req) {
 }
 
 esp_err_t api_node_unmute_post_handler(httpd_req_t *req) {
-    int node_id = extract_node_id(req->uri);
+    int node_id = 0;
+    char id_str[8] = {0};
+    char query[32] = {0};
+
+    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK &&
+        httpd_query_key_value(query, "id", id_str, sizeof(id_str)) == ESP_OK
+    ) {
+        node_id = atoi(id_str);
+    }
+
     if (node_id < 0) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid node ID");
         return ESP_FAIL;
     }
+
     send_command_to_node(node_id, MESH_CMD_UNMUTE, 1);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, "{\"ok\":true}");
@@ -271,20 +291,25 @@ esp_err_t api_node_unmute_post_handler(httpd_req_t *req) {
 }
 
 esp_err_t api_node_volume_post_handler(httpd_req_t *req) {
-    int node_id = extract_node_id(req->uri);
-    if (node_id < 0) {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid node ID");
-        return ESP_FAIL;
-    }
-
     /* Read query string: ?level=50 */
     char query[32] = {0};
+    char id_str[8] = {0};
     char level_str[8] = {0};
+    int node_id = 0;
     int level = 50; /* default */
-    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK && httpd_query_key_value(query, "level", level_str, sizeof(level_str)) == ESP_OK)  {
+    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK &&
+        httpd_query_key_value(query, "id", id_str, sizeof(id_str)) == ESP_OK &&
+        httpd_query_key_value(query, "level", level_str, sizeof(level_str)) == ESP_OK
+    )  {
+        node_id = atoi(id_str);
         level = atoi(level_str);
         if (level < 0) level = 0;
         if (level > 100) level = 100;
+    }
+
+    if (node_id < 0) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid node ID");
+        return ESP_FAIL;
     }
 
     send_command_to_node(node_id, MESH_CMD_SET_VOLUME, (uint8_t)level);
@@ -384,7 +409,7 @@ static const char *DASHBOARD_HTML =
 "<body>"
 "<div class=\"header\">"
 "<div><h1>Privacy Shield</h1></div>"
-"<div class=\"status\">Hub &bull; <span id=\"nodeCount\">0</span> nodes</div>"
+"<div class=\"status\">Hub • <span id=\"nodeCount\">0</span> nodes</div>"
 "</div>"
 "<div class=\"container\">"
 "<div class=\"toolbar\">"
@@ -401,12 +426,14 @@ static const char *DASHBOARD_HTML =
 "var errEl=document.getElementById('error');"
 "var dbg=document.getElementById('debug');"
 "var refreshCount=0;"
+"window.dragging=false;"
 "function showErr(e){errEl.style.display='block';errEl.textContent='Error: '+(e.message||e);}"
 "function hideErr(){errEl.style.display='none'}"
 "function fmtUptime(s){"
 "var h=Math.floor(s/3600),m=Math.floor((s%3600)/60);"
 "return h+'h '+m+'m'}"
 "function render(nodes){"
+"if(window.dragging) return;"
 "hideErr();refreshCount++;"
 "dbg.textContent='Refresh #'+refreshCount+' | nodes='+nodes.length+' | '+JSON.stringify(nodes).slice(0,500);"
 "document.getElementById('nodeCount').textContent=nodes.length;"
@@ -419,16 +446,28 @@ static const char *DASHBOARD_HTML =
 "+'<div class=row><span class=label>Volume</span><span class=val>'+n.volume+'%</span></div>'"
 "+'<div class=row><span class=label>Battery</span><span class=val>'+n.battery_pct+'%</span></div>'"
 "+'<div class=row><span class=label>Uptime</span><span class=val>'+fmtUptime(n.uptime_s)+'</span></div>'"
-"+'<div class=vol-row><span>Vol</span><input type=range min=0 max=100 value='+n.volume+' class=vol-slider oninput=\"setVolume('+n.node_id+',this.value)\"><span>'+n.volume+'%</span></div>'"
+"+'<div class=vol-row><span>Vol</span><input type=range min=0 max=100 value='+n.volume+' class=vol-slider data-node-id='+n.node_id+'><span>'+n.volume+'%</span></div>'"
 "+'<div class=actions>'"
 "+'<button class=btn-mute onclick=\"muteNode('+n.node_id+')\">Mute</button>'"
 "+'<button class=btn-unmute onclick=\"unmuteNode('+n.node_id+')\">Unmute</button>'"
 "+'</div></div>'"
-"}).join('')}"
+"}).join('');"
+"document.querySelectorAll('.vol-slider').forEach(function(slider){"
+"slider.addEventListener('input',function(){"
+"window.dragging=true;"
+"this.nextSibling.textContent=this.value+'%';"
+"});"
+"slider.addEventListener('change',function(){"
+"var nodeId=this.getAttribute('data-node-id');"
+"setVolume(nodeId,this.value);"
+"window.dragging=false;"
+"});"
+"});"
+"}"
 "function refresh(){fetch('/api/nodes').then(function(r){return r.json()}).then(render).catch(showErr)}"
-"function muteNode(id){fetch('/api/node/'+id+'/mute',{method:'POST'}).then(refresh).catch(showErr)}"
-"function unmuteNode(id){fetch('/api/node/'+id+'/unmute',{method:'POST'}).then(refresh).catch(showErr)}"
-"function setVolume(id,v){fetch('/api/node/'+id+'/volume?level='+v,{method:'POST'}).then(refresh).catch(showErr)}"
+"function muteNode(id){fetch('/api/node/mute?id='+id,{method:'POST'}).then(refresh).catch(showErr)}"
+"function unmuteNode(id){fetch('/api/node/unmute?id='+id,{method:'POST'}).then(refresh).catch(showErr)}"
+"function setVolume(id,v){fetch('/api/node/volume?level='+v+'&id='+id,{method:'POST'}).then(refresh).catch(showErr)}"
 "function globalMute(){fetch('/api/global/mute',{method:'POST'}).then(refresh).catch(showErr)}"
 "function globalUnmute(){fetch('/api/global/unmute',{method:'POST'}).then(refresh).catch(showErr)}"
 "refresh();setInterval(refresh,5000)"
