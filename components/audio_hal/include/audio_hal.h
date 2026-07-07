@@ -2,8 +2,10 @@
 #define AUDIO_HAL_H
 
 #include <esp_err.h>
+#include <stddef.h>
 #include <stdint.h>
-
+#include <stdio.h>
+#include <stdlib.h>
 // ==========================================================
 // AUDIO HARDWARE ABSTRACTION LAYER (HAL)
 // ==========================================================
@@ -24,5 +26,12 @@ void audio_hal_speaker_init(void);
 // void sine_wave_task(void *pvParameters);
 
 void audio_hal_speaker_task(void *pvParameters);
+
+typedef struct {
+	int64_t mic_timestamp;
+	int64_t vad_timestamp;
+	size_t packet_size;
+	int16_t *audio_packet;
+} audio_packet_t;
 
 #endif // AUDIO_HAL_H
