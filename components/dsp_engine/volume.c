@@ -86,35 +86,36 @@ uint8_t volume_process_frame(volume_state_t *vol,
     bool cmd_m = cmd_mask;
     VOLUME_UNLOCK();
 
-    if (vol_override) {
-        /* Apply to output */
-        float current_level = cmd_vol;
-        apply_volume(noise_out, count, current_level);
-        // we set command if hub sent command
-        // note: if masking_active = false, afe.c will disable the audio, setting it to false is sufficient
-        *masking_active = mask_override ? cmd_m : (current_level > 0.05f);
+    float target = 0.0f;
+    float current_level = 0.0f;
 
-        VOLUME_LOCK();
-        level = current_level;
-        VOLUME_UNLOCK();
-        return (uint8_t)(current_level * 100.0f);
+    /* 1. Calculate the target volume based on override or microphone RMS */
+    if (vol_override) {
+        target = cmd_vol;
+    } else {
+        float rms = compute_rms(mic_in, count);
+        target = rms_to_volume(rms, vol->noise_floor);
     }
 
-    /* Measure speech level from mic */
-    float rms = compute_rms(mic_in, count);
-    //ESP_LOGI(TAG, "RMS: %.1f (noise floor: %.1f)", rms, vol->noise_floor);
+    /* 2 & 3. Handle immediate cut (mute) vs smooth ramp */
+    if (mask_override && cmd_m == false) {
+        /* Hard cut to 0: bypass ramp and reset internal state to prevent glitches */
+        current_level = 0.0f;
+        vol->current = 0.0f;
+    } else {
+        /* Apply smooth transition (ramp) towards the target */
+        current_level = volume_ramp(vol, target);
+    }
 
-    /* Convert to target volume (log scale, respect noise floor) */
-    float target = rms_to_volume(rms, vol->noise_floor);
+    /* 4. Set the final masking state to return to afe.c */
+    if (mask_override) {
+        *masking_active = cmd_m;
+    } else {
+        *masking_active = (current_level > 0.05f);  /* >5% = actively masking */
+    }
 
-    /* Smooth transition */
-    float current_level = volume_ramp(vol, target);
-
-    /* Apply to output */
+    /* 5. Apply the calculated volume to the output buffer */
     apply_volume(noise_out, count, current_level);
-
-    /* Set masking state based on meaningful volume */
-    *masking_active = (current_level > 0.05f);  /* >5% = actively masking */
 
     VOLUME_LOCK();
     level = current_level;
@@ -122,7 +123,6 @@ uint8_t volume_process_frame(volume_state_t *vol,
 
     return (uint8_t)(current_level * 100.0f);
 }
-
 
 void volume_set_command(uint8_t value) {
     volume_ensure_mutex();
