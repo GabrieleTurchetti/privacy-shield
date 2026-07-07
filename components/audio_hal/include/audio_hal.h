@@ -34,4 +34,6 @@ typedef struct {
 	int16_t *audio_packet;
 } audio_packet_t;
 
+void free_audio_packet(audio_packet_t *packet);
+
 #endif // AUDIO_HAL_H

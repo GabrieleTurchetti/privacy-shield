@@ -7,18 +7,22 @@
 
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 
 #include "esp_afe_config.h"
 #include "esp_afe_sr_iface.h"
 #include "esp_afe_sr_models.h"
 #include "esp_mn_models.h"
 #include "esp_vad.h"
+
+#include "audio_hal.h"
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
 #include "global_config.h"
 #include "log_tags.h"
 #include "model_path.h"
 #include "noise_gen.h"
+#include "portmacro.h"
 #include "volume.h"
 
 #include "freertos/FreeRTOS.h"
@@ -30,8 +34,10 @@ static uint8_t last_volume = 0;
 
 static const esp_afe_sr_iface_t *afe_handle = NULL;
 static esp_afe_sr_data_t *afe_data = NULL;
+
 extern QueueHandle_t audio_input_queue;
 extern QueueHandle_t audio_output_queue;
+extern QueueHandle_t afe_intermediate_queue;
 
 static audio_afe_vad_state_t AFE_STATE;
 static bool valid_speaker = false;
@@ -42,9 +48,7 @@ static int16_t *feed_buffer;
 
 uint8_t volume_pct = 0;
 
-uint8_t afe_get_volume(void) {
-	return volume_pct;
-}
+uint8_t afe_get_volume(void) { return volume_pct; }
 
 static audio_afe_vad_state_t convert_vad_state(vad_state_t state) {
 	switch (state) {
@@ -207,14 +211,12 @@ void audio_afe_feed(void *pvParameters) {
 	}
 
 	// Inital values for speaker buffer for purposes of AEC
-	int feed_chunksize = afe_feed_chunksize();
-	if (valid_speaker) {
-		memset(speaker_buffer, 0, feed_chunksize * sizeof(int16_t));
-	}
-	while (1) {
-		if (xQueueReceive(audio_input_queue, microphone_buffer,
-						  portMAX_DELAY) == pdTRUE) {
 
+	audio_packet_t *packet;
+	while (1) {
+		if (xQueueReceive(audio_input_queue, &packet, portMAX_DELAY) ==
+			pdTRUE) {
+			microphone_buffer = packet->audio_packet;
 			int ret = 0;
 			if (valid_speaker) {
 
@@ -222,7 +224,7 @@ void audio_afe_feed(void *pvParameters) {
 				 * Interweaving the Speaker sample witht hhe microphone
 				 * for AEC purposes as required when necessarry
 				 * */
-				for (int i = 0; i < feed_chunksize; i++) {
+				for (int i = 0; i < (int)packet->packet_size; i++) {
 					feed_buffer[2 * i] = microphone_buffer[i];
 					feed_buffer[2 * i + 1] = speaker_buffer[i];
 				}
@@ -231,6 +233,11 @@ void audio_afe_feed(void *pvParameters) {
 
 			} else {
 				ret = afe_handle->feed(afe_data, microphone_buffer);
+			}
+
+			if (xQueueSend(afe_intermediate_queue, &packet, 0) != pdTRUE) {
+				ESP_LOGE(TAG, "Failed to send to AFE queue");
+				free_audio_packet(packet);
 			}
 
 			if (ret < 0) {
@@ -251,11 +258,9 @@ void audio_afe_fetch(void *pvParameters) {
 	volume_state_t vol_state;
 	volume_init(&vol_state);
 	noise_gen_init(NOISE_TYPE_PINK);
-	// uint8_t frame_count = 0;
-	// float calibration_sum = 0.0f;
-	int feed_chunksize = afe_feed_chunksize();
-	while (1) {
 
+	audio_packet_t *packet;
+	while (1) {
 		afe_fetch_result_t *result = afe_handle->fetch(afe_data);
 
 		if (result == NULL) {
@@ -267,6 +272,13 @@ void audio_afe_fetch(void *pvParameters) {
 		}
 
 		if (result != NULL && result->ret_value == ESP_OK) {
+
+			if (xQueueReceive(afe_intermediate_queue, &packet, 0) != pdTRUE) {
+				ESP_LOGE(TAG, "Failed to Recieve audio packet from "
+							  "AFE_INTERMEDIATE_QUEUE");
+			}
+
+			packet->vad_timestamp = esp_timer_get_time();
 			audio_afe_vad_state_t state = convert_vad_state(result->vad_state);
 			if (state != AFE_STATE) {
 				if (state == AUDIO_AFE_VAD_SPEECH) {
@@ -282,7 +294,7 @@ void audio_afe_fetch(void *pvParameters) {
 
 			if (valid_speaker) {
 
-				noise_gen_fill(speaker_buffer, feed_chunksize);
+				noise_gen_fill(speaker_buffer, (int)packet->packet_size);
 				bool masking;
 				uint8_t volume_pct = 0;
 
@@ -290,11 +302,12 @@ void audio_afe_fetch(void *pvParameters) {
 					// Someone talking — normal volume from RMS
 					volume_pct = volume_process_frame(
 						&vol_state, microphone_buffer, speaker_buffer,
-						feed_chunksize, &masking);
+						(int)packet->packet_size, &masking);
 				} else {
 					// Silence — force ramp to zero
 					float level = volume_ramp(&vol_state, 0.0f);
-					apply_volume(speaker_buffer, feed_chunksize, level);
+					apply_volume(speaker_buffer, (int)packet->packet_size,
+								 level);
 					masking = false;
 				}
 				if (abs(volume_pct - last_volume) >= 5) {
@@ -308,10 +321,15 @@ void audio_afe_fetch(void *pvParameters) {
 					last_volume = volume_pct;
 				}
 
-				xQueueSend(audio_output_queue, speaker_buffer, portMAX_DELAY);
+				if (audio_output_queue != NULL) {
+					if (xQueueSend(audio_output_queue, &packet,
+								   portMAX_DELAY) != pdTRUE) {
+						ESP_LOGE(TAG, "Failed to send to Speaker");
+						free_audio_packet(packet);
+					}
+				}
 			}
 		}
-		vTaskDelay(pdMS_TO_TICKS(1));
 	}
 }
 

@@ -2,6 +2,7 @@
 #include "audio_hal.h" // For function signatures
 #include "driver/i2s_std.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "global_config.h" // For pin configurations
@@ -49,16 +50,34 @@ void audio_hal_speaker_init(void) {
 }
 
 void audio_hal_speaker_task(void *pvParameters) {
-	int feed_chunksize = afe_feed_chunksize();
-	int16_t buffer[feed_chunksize];
-	size_t bytes_written;
 
+	size_t bytes_written;
+	audio_packet_t *packet;
+	size_t piece_size = sizeof(int16_t);
 	while (1) {
-		xQueueReceive(audio_output_queue, buffer, portMAX_DELAY);
+		xQueueReceive(audio_output_queue, &packet, portMAX_DELAY);
 		// buffer is already scaled — volume was applied by the AFE task
 
-		i2s_channel_write(tx_chan, buffer, feed_chunksize * sizeof(int16_t),
-						  &bytes_written, portMAX_DELAY);
+		int64_t current_time = esp_timer_get_time();
+
+		i2s_channel_write(tx_chan, packet->audio_packet,
+						  packet->packet_size * piece_size, &bytes_written,
+						  portMAX_DELAY);
+
+		if (bytes_written >= 0) {
+			ESP_LOGW(TAG, "Failed to send to AMP/Speaker");
+		}
+
+		int64_t mic_to_speaker_delay =
+			(packet->mic_timestamp - current_time) / 1000;
+		int64_t vad_to_speaker_delay =
+			(packet->vad_timestamp - current_time) / 1000;
+
+		ESP_LOGI(TAG,
+				 "Mic to Speaker delay: %" PRId64
+				 " ms, VAD to Speaker delay: %" PRId64,
+				 mic_to_speaker_delay, vad_to_speaker_delay);
+		free_audio_packet(packet);
 	}
 }
 

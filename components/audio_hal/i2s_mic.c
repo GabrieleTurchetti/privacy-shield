@@ -1,4 +1,5 @@
 #include "afe.h"
+#include "audio_hal.h"
 #include "driver/i2s_std.h"
 #include "esp_err.h"
 #include "esp_log.h"
@@ -9,8 +10,10 @@
 #include "freertos/task.h"
 #include "global_config.h"
 #include "log_tags.h"
+#include "portmacro.h"
 #include "sdkconfig.h"
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 
 static const char *TAG = LOG_TAG_AUDIO_MIC;
@@ -55,8 +58,9 @@ esp_err_t audio_hal_mic_init() { // TODO: If this always returns ESP_OK, should
 }
 
 void audio_hal_mic_read_task(void *pvParameters) {
-	int32_t raw_samples[afe_feed_chunksize()];
-	int16_t ai_buffer[afe_feed_chunksize()];
+	int feed_chunksize = afe_feed_chunksize();
+	int32_t raw_samples[feed_chunksize];
+	int16_t ai_buffer[feed_chunksize];
 	int32_t dc_offset = 0;
 	bool is_calibrated = false;
 	int64_t calibration_sum = 0;
@@ -77,6 +81,7 @@ void audio_hal_mic_read_task(void *pvParameters) {
 
 		if (err == ESP_OK && bytes_read > 0) {
 			int samples_read = bytes_read / 4;
+			int64_t current_time = esp_timer_get_time();
 
 			/* ── DC offset calibration (first 1 second) ── */
 			if (!is_calibrated) {
@@ -95,7 +100,6 @@ void audio_hal_mic_read_task(void *pvParameters) {
 
 #if defined(CONFIG_PRIVACY_SHIELD_BUILD_DEBUG) &&                              \
 	defined(CONFIG_PRIVACY_SHIELD_LOG_AUDIO)
-			int64_t current_time = esp_timer_get_time();
 			int delta_ms = (current_time - last_read_time) / 1000;
 			last_read_time = current_time;
 			packet_count++;
@@ -130,13 +134,24 @@ void audio_hal_mic_read_task(void *pvParameters) {
 				ESP_LOGD(TAG, "%ld\n", ai_buffer[i]);
 			}
 #endif
+			audio_packet_t *packet = malloc(sizeof(audio_packet_t));
+			packet->audio_packet = ai_buffer;
+			packet->mic_timestamp = current_time;
+			packet->packet_size = (size_t)feed_chunksize;
 
 			/* ── Send to AFE pipeline ── */
 			if (audio_input_queue != NULL) {
-				if (xQueueOverwrite(audio_input_queue, ai_buffer) != pdTRUE) {
+				if (xQueueSend(audio_input_queue, &packet, portMAX_DELAY) !=
+					pdTRUE) {
 					ESP_LOGE(TAG, "Failed to send Microphone data");
+					free_audio_packet(packet);
 				}
 			}
 		}
 	}
+}
+
+void free_audio_packet(audio_packet_t *packet) {
+	free(packet->audio_packet);
+	free(packet);
 }
