@@ -41,6 +41,8 @@ esp_err_t audio_afe_init(const char *input_format);
 
 bool is_afe_speech(void);
 
+int64_t get_afe_delay(void);
+
 int afe_feed_chunksize(void);
 
 int afe_feed_channels(void);

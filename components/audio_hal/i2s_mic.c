@@ -15,6 +15,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 static const char *TAG = LOG_TAG_AUDIO_MIC;
 static i2s_chan_handle_t rx_handle;
@@ -134,24 +136,44 @@ void audio_hal_mic_read_task(void *pvParameters) {
 				ESP_LOGD(TAG, "%ld\n", ai_buffer[i]);
 			}
 #endif
-			audio_packet_t *packet = malloc(sizeof(audio_packet_t));
-			packet->audio_packet = ai_buffer;
-			packet->mic_timestamp = current_time;
-			packet->packet_size = (size_t)feed_chunksize;
+			audio_packet_t *packet = malloc(sizeof(*packet));
+			if (packet == NULL) {
+				ESP_LOGE(TAG, "Failed to allocate packet");
+				continue;
+			}
+
+			packet->audio_sample =
+				malloc(feed_chunksize * sizeof(packet->audio_sample[0]));
+			if (packet->audio_sample == NULL) {
+				ESP_LOGE(TAG, "Failed to allocate packet audio");
+				free_audio_packet(packet);
+				continue;
+			}
+
+			memcpy(packet->audio_sample, ai_buffer,
+				   feed_chunksize * sizeof(packet->audio_sample[0]));
+			packet->timestamp = current_time;
+			packet->sample_amount = (size_t)feed_chunksize;
 
 			/* ── Send to AFE pipeline ── */
 			if (audio_input_queue != NULL) {
-				if (xQueueSend(audio_input_queue, &packet, portMAX_DELAY) !=
-					pdTRUE) {
+				if (xQueueSend(audio_input_queue, (void *)&packet, 1) !=
+					pdPASS) {
 					ESP_LOGE(TAG, "Failed to send Microphone data");
 					free_audio_packet(packet);
 				}
+			} else {
+				free_audio_packet(packet);
 			}
 		}
 	}
 }
 
 void free_audio_packet(audio_packet_t *packet) {
-	free(packet->audio_packet);
+	if (packet == NULL) {
+		return;
+	}
+
+	free(packet->audio_sample);
 	free(packet);
 }

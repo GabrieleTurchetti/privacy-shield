@@ -24,7 +24,7 @@ static const char *TAG = LOG_TAG_MAIN;
 // Shared Queue handling raw audio chunks between Core 1 and Core 0
 QueueHandle_t audio_input_queue = NULL;
 QueueHandle_t audio_output_queue = NULL;
-QueueHandle_t afe_intermediate_queue = NULL;
+QueueHandle_t audio_intermediate_queue = NULL;
 
 /* -------------------------------------------------------------------------- */
 /* Log level setup — see Kconfig.projbuild for per-subsystem toggles         */
@@ -200,26 +200,31 @@ void app_main(void) {
 			 feed_chunksize);
 
 	/* ── Audio Queues ───────────────────────────────────────────────── */
-
 	int queue_size = sizeof(audio_packet_t *);
 
-	audio_input_queue = xQueueCreate(2, queue_size);
+	audio_input_queue = xQueueCreate(10, queue_size);
 	if (audio_input_queue == NULL) {
 		ESP_LOGE(TAG, "  [!!] Audio queue creation failed!");
 		return;
 	}
 
-	audio_output_queue = xQueueCreate(2, queue_size);
+	audio_output_queue = xQueueCreate(10, queue_size);
 	if (audio_output_queue == NULL) {
 		ESP_LOGE(TAG, "  [!!] Noise queue creation failed!");
 		return;
 	}
 
-	afe_intermediate_queue = xQueueCreate(2, queue_size);
-	if (afe_intermediate_queue == NULL) {
+	audio_intermediate_queue = xQueueCreate(10, queue_size);
+	if (audio_intermediate_queue == NULL) {
 		ESP_LOGE(TAG, "  [!!] Noise queue creation failed!");
 		return;
 	}
+
+	/* ── Tasks ──────────────────────────────────────────────── */
+	xTaskCreatePinnedToCore(audio_hal_mic_read_task, "Mic_Read", 4096, NULL, 5,
+							NULL, 1);
+
+	vTaskDelay(pdMS_TO_TICKS(1000));
 
 	/* ── Battery ──────────────────────────────────────────────── */
 	if (battery_get_status() == BATT_DISCONNECTED) {
@@ -232,16 +237,14 @@ void app_main(void) {
 		vTaskDelay(pdMS_TO_TICKS(10));
 	}
 
-	/* ── Tasks ──────────────────────────────────────────────── */
-	xTaskCreatePinnedToCore(audio_hal_mic_read_task, "Mic_Read", 4096, NULL, 5,
-							NULL, 1);
+	xTaskCreate(audio_hal_speaker_task, "SPEAKER_TASK", 8192, NULL, 5, NULL);
+	vTaskDelay(pdMS_TO_TICKS(10));
 
-	vTaskDelay(pdMS_TO_TICKS(1000));
-
-	xTaskCreate(audio_hal_speaker_task, "SPEAKER_TASK", 4096, NULL, 5, NULL);
-	xTaskCreatePinnedToCore(&audio_afe_feed, "AFE_TASK", 4096, NULL, 5, NULL,
+	xTaskCreatePinnedToCore(&audio_afe_feed, "AFE_TASK", 8192, NULL, 5, NULL,
 							0);
-	xTaskCreatePinnedToCore(audio_afe_fetch, "AFE_FETCH_TASK", 4096, NULL, 5,
+	vTaskDelay(pdMS_TO_TICKS(10));
+
+	xTaskCreatePinnedToCore(audio_afe_fetch, "AFE_FETCH_TASK", 8192, NULL, 5,
 							NULL, 1);
 	ESP_LOGI(TAG, "  [OK] Tasks spawned ....... Mic_Read (Core 1, Pri 5)");
 	ESP_LOGI(TAG, "                          . AFE_Proc (Core 0, Pri 5)");
@@ -249,7 +252,7 @@ void app_main(void) {
 
 	/* ── Footer ─────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "+------------------------------------------+");
-	ESP_LOGI(TAG, "|      SYSTEM READY! Running v0.305        |");
+	ESP_LOGI(TAG, "|      SYSTEM READY! Running v0.411        |");
 	ESP_LOGI(TAG, "+------------------------------------------+");
 #endif
 }

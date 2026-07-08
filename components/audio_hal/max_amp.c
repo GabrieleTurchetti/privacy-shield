@@ -60,23 +60,18 @@ void audio_hal_speaker_task(void *pvParameters) {
 
 		int64_t current_time = esp_timer_get_time();
 
-		i2s_channel_write(tx_chan, packet->audio_packet,
-						  packet->packet_size * piece_size, &bytes_written,
+		i2s_channel_write(tx_chan, packet->audio_sample,
+						  packet->sample_amount * piece_size, &bytes_written,
 						  portMAX_DELAY);
 
-		if (bytes_written >= 0) {
+		if (bytes_written == 0) {
 			ESP_LOGW(TAG, "Failed to send to AMP/Speaker");
 		}
 
 		int64_t mic_to_speaker_delay =
-			(packet->mic_timestamp - current_time) / 1000;
-		int64_t vad_to_speaker_delay =
-			(packet->vad_timestamp - current_time) / 1000;
-
-		ESP_LOGI(TAG,
-				 "Mic to Speaker delay: %" PRId64
-				 " ms, VAD to Speaker delay: %" PRId64,
-				 mic_to_speaker_delay, vad_to_speaker_delay);
+			(current_time - packet->timestamp) / 1000;
+		ESP_LOGI(TAG, "Mic to Speaker delay: %" PRId64 " ms",
+				 mic_to_speaker_delay);
 		free_audio_packet(packet);
 	}
 }

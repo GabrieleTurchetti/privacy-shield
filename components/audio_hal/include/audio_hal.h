@@ -28,10 +28,9 @@ void audio_hal_speaker_init(void);
 void audio_hal_speaker_task(void *pvParameters);
 
 typedef struct {
-	int64_t mic_timestamp;
-	int64_t vad_timestamp;
-	size_t packet_size;
-	int16_t *audio_packet;
+	int64_t timestamp;
+	size_t sample_amount;
+	int16_t *audio_sample;
 } audio_packet_t;
 
 void free_audio_packet(audio_packet_t *packet);
