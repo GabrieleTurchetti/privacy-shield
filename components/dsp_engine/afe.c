@@ -41,7 +41,9 @@ extern QueueHandle_t audio_intermediate_queue;
 
 static audio_afe_vad_state_t AFE_STATE;
 static bool valid_speaker = false;
-static int64_t afe_delay = 0;
+static uint64_t afe_delay = 0;
+static uint avg_afe_delay[1000];
+static uint min_afe_delay = 9999, max_afe_delay = 0, delay_tracker = 0;
 
 static int16_t *speaker_buffer;
 static int16_t *feed_buffer;
@@ -210,21 +212,21 @@ void audio_afe_feed(void *pvParameters) {
 
 	// Inital values for speaker buffer for purposes of AEC
 	const int expected_samples = afe_feed_chunksize();
-	audio_packet_t *packet == NULL;
+	audio_packet_t *packet = NULL;
 	while (1) {
 		if (xQueueReceive(audio_input_queue, &packet, portMAX_DELAY) ==
 			pdTRUE) {
 
-			if (packet == NULL || packet->audio_packet == NULL) {
+			if (packet == NULL || packet->audio_sample == NULL) {
 				ESP_LOGE(TAG, "Recieved invalid audio packet");
 				free_audio_packet(packet);
 				packet = NULL;
 				continue;
 			}
 
-			if (packet->packet_size != (size_t)expected_samples) {
+			if (packet->sample_amount != (size_t)expected_samples) {
 				ESP_LOGE(TAG, "Invalid packet size: got %zu, expected %d",
-						 packet->packet_size, expected_samples);
+						 packet->sample_amount, expected_samples);
 
 				free_audio_packet(packet);
 				packet = NULL;
@@ -282,82 +284,91 @@ void audio_afe_fetch(void *pvParameters) {
 
 		if (result == NULL) {
 			ESP_LOGE(TAG, "AFE fetch returned NULL");
+			continue;
 		}
 
-		if (result->ret_value == ESP_FAIL) {
-			ESP_LOGE(TAG, "AFE fetch failed");
+		if (result->ret_value != ESP_OK) {
+			ESP_LOGE(TAG, "AFE fetch failed :%d", result->ret_value);
+			continue;
 		}
 
-		if (result != NULL && result->ret_value == ESP_OK) {
+		if (xQueueReceive(audio_intermediate_queue, &packet, portMAX_DELAY) !=
+			pdTRUE) {
+			ESP_LOGE(TAG, "Failed to Recieve audio packet from "
+						  "AFE_INTERMEDIATE_QUEUE");
+			continue;
+		}
 
-			if (xQueueReceive(audio_intermediate_queue, &packet,
-							  portMAX_DELAY) != pdTRUE) {
-				ESP_LOGE(TAG, "Failed to Recieve audio packet from "
-							  "AFE_INTERMEDIATE_QUEUE");
-			}
+		if (packet == NULL || packet->audio_sample == NULL) {
+			ESP_LOGE(TAG,
+					 "Recieved invalid audio packet from Intermediate Queue");
+			free_audio_packet(packet);
+			packet = NULL;
+			continue;
+		}
 
-			afe_delay = esp_timer_get_time() - packet->timestamp;
-			ESP_LOGI(TAG, "MIC to AFE delay: %" PRId64 " ms", get_afe_delay());
-			audio_afe_vad_state_t state = convert_vad_state(result->vad_state);
-			if (state != AFE_STATE) {
-				if (state == AUDIO_AFE_VAD_SPEECH) {
-					ESP_LOGI(TAG, "[VAD] Speech detected!");
-				} else if (state == AUDIO_AFE_VAD_SILENCE) {
-					ESP_LOGI(TAG, "[VAD] Silence...");
-				} else {
-					ESP_LOGW(TAG, "[VAD] Unknown VAD state.");
-				}
+		afe_delay = esp_timer_get_time() - packet->timestamp;
+		ESP_LOGI(TAG, "MIC to AFE delay: %" PRId64 " ms", get_afe_delay());
 
-				AFE_STATE = result->vad_state;
-			}
-
-			if (valid_speaker) {
-
-				noise_gen_fill(speaker_buffer, (int)packet->sample_amount);
-				bool masking;
-				uint8_t volume_pct = 0;
-
-				if (AFE_STATE == AUDIO_AFE_VAD_SPEECH) {
-					// Someone talking — normal volume from RMS
-					volume_pct = volume_process_frame(
-						&vol_state, packet->audio_sample, speaker_buffer,
-						(int)packet->sample_amount, &masking);
-				} else {
-					// Silence — force ramp to zero
-					float level = volume_ramp(&vol_state, 0.0f);
-					apply_volume(speaker_buffer, (int)packet->sample_amount,
-								 level);
-					masking = false;
-				}
-
-				if (abs(volume_pct - last_volume) >= 5) {
-					if (masking) {
-						ESP_LOGI(TAG, "Masking active — volume %u%%",
-								 volume_pct);
-					} else {
-						ESP_LOGI(TAG, "Masking inactive — volume %u%%",
-								 volume_pct);
-					}
-					last_volume = volume_pct;
-				}
-
-				memcpy(packet->audio_sample, speaker_buffer,
-					    packet->sample_amount * sizeof(packet->audio_sample[0]);
-
-				if (audio_output_queue != NULL) {
-					if (xQueueSend(audio_output_queue, &packet, 1) != pdPASS) {
-						ESP_LOGE(TAG, "Failed to send to Speaker");
-						free_audio_packet(packet);
-					}
-				}
+		audio_afe_vad_state_t state = convert_vad_state(result->vad_state);
+		if (state != AFE_STATE) {
+			if (state == AUDIO_AFE_VAD_SPEECH) {
+				ESP_LOGI(TAG, "[VAD] Speech detected!");
+			} else if (state == AUDIO_AFE_VAD_SILENCE) {
+				ESP_LOGI(TAG, "[VAD] Silence...");
 			} else {
+				ESP_LOGW(TAG, "[VAD] Unknown VAD state.");
+			}
+
+			AFE_STATE = result->vad_state;
+		}
+
+		if (valid_speaker) {
+
+			noise_gen_fill(speaker_buffer, (int)packet->sample_amount);
+			bool masking;
+			uint8_t volume_pct = 0;
+
+			if (AFE_STATE == AUDIO_AFE_VAD_SPEECH) {
+				// Someone talking — normal volume from RMS
+				volume_pct = volume_process_frame(
+					&vol_state, packet->audio_sample, speaker_buffer,
+					(int)packet->sample_amount, &masking);
+			} else {
+				// Silence — force ramp to zero
+				float level = volume_ramp(&vol_state, 0.0f);
+				apply_volume(speaker_buffer, (int)packet->sample_amount, level);
+				masking = false;
+			}
+
+			if (abs(volume_pct - last_volume) >= 5) {
+				if (masking) {
+					ESP_LOGI(TAG, "Masking active — volume %u%%", volume_pct);
+				} else {
+					ESP_LOGI(TAG, "Masking inactive — volume %u%%", volume_pct);
+				}
+				last_volume = volume_pct;
+			}
+
+			memcpy(packet->audio_sample, speaker_buffer,
+				   packet->sample_amount * sizeof(packet->audio_sample[0]));
+
+			if (xQueueSend(audio_output_queue, &packet, 1) != pdPASS) {
+				ESP_LOGE(TAG, "Failed to send to Speaker");
 				free_audio_packet(packet);
 			}
+
+		} else {
+			free_audio_packet(packet);
 		}
+		packet = NULL;
 	}
 }
 
-int64_t get_afe_delay() { return (int64_t)(afe_delay / 1000); }
+int64_t get_afe_delay() {
+	// Converting to ms
+	return (int64_t)(afe_delay / 1000);
+}
 
 bool is_afe_speech() { return AFE_STATE == AUDIO_AFE_VAD_SPEECH; }
 

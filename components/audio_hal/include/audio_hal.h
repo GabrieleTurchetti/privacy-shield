@@ -35,4 +35,6 @@ typedef struct {
 
 void free_audio_packet(audio_packet_t *packet);
 
+int64_t get_end_to_end_delay(void);
+
 #endif // AUDIO_HAL_H

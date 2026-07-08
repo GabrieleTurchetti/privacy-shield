@@ -1,9 +1,11 @@
 #include "afe.h"
 #include "audio_hal.h" // For function signatures
 #include "driver/i2s_std.h"
+#include "esp_err.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/projdefs.h"
 #include "freertos/task.h"
 #include "global_config.h" // For pin configurations
 #include "log_tags.h"
@@ -13,6 +15,7 @@
 static const char *TAG = LOG_TAG_AUDIO_AMP;
 static i2s_chan_handle_t tx_chan;
 extern QueueHandle_t audio_output_queue;
+static int64_t end_to_end_delay = 0;
 
 void audio_hal_speaker_init(void) {
 	ESP_LOGI(TAG, "Initializing I2S TX for MAX98357A...");
@@ -49,30 +52,43 @@ void audio_hal_speaker_init(void) {
 	ESP_LOGI(TAG, "Amplifier ready to use.");
 }
 
+int64_t get_end_to_end_delay() {
+	// Converted to ms
+	return (end_to_end_delay / 1000);
+}
+
 void audio_hal_speaker_task(void *pvParameters) {
 
-	size_t bytes_written;
-	audio_packet_t *packet;
-	size_t piece_size = sizeof(int16_t);
+	size_t bytes_written = 0;
+	audio_packet_t *packet = NULL;
+
 	while (1) {
-		xQueueReceive(audio_output_queue, &packet, portMAX_DELAY);
-		// buffer is already scaled — volume was applied by the AFE task
-
-		int64_t current_time = esp_timer_get_time();
-
-		i2s_channel_write(tx_chan, packet->audio_sample,
-						  packet->sample_amount * piece_size, &bytes_written,
-						  portMAX_DELAY);
-
-		if (bytes_written == 0) {
-			ESP_LOGW(TAG, "Failed to send to AMP/Speaker");
+		if (xQueueReceive(audio_output_queue, &packet, portMAX_DELAY) !=
+			pdTRUE) {
+			continue;
 		}
 
-		int64_t mic_to_speaker_delay =
-			(current_time - packet->timestamp) / 1000;
+		if (packet == NULL || packet->audio_sample == NULL) {
+			free_audio_packet(packet);
+			packet = NULL;
+			continue;
+		}
+
+		end_to_end_delay = (esp_timer_get_time() - packet->timestamp);
+
+		esp_err_t err = i2s_channel_write(tx_chan, packet->audio_sample,
+										  packet->sample_amount *
+											  sizeof(packet->audio_sample[0]),
+										  &bytes_written, portMAX_DELAY);
+
+		if (bytes_written == 0 || err != ESP_OK) {
+			ESP_LOGW(TAG, "Failed to wrtie to AMP/Speaker");
+		}
+
 		ESP_LOGI(TAG, "Mic to Speaker delay: %" PRId64 " ms",
-				 mic_to_speaker_delay);
+				 get_end_to_end_delay());
 		free_audio_packet(packet);
+		packet = NULL;
 	}
 }
 
