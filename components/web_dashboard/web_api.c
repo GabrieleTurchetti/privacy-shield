@@ -118,6 +118,9 @@ static void json_append_nodes(char *buf, size_t buf_size) {
         if (!mesh->neighbors[i].active) continue;
 
         uint8_t nid = mesh->neighbors[i].node_id;
+        //These two ifs are required to avoid showing the hub itself in the list of nodes
+        if (memcmp(mesh->neighbors[i].mac, mesh->my_mac, ESP_NOW_ETH_ALEN) == 0)
+            continue; /* skip self (hub) */
         if (nid == 0) continue; /* Skip hub itself */
 
         /* Pull cached status for this node */
@@ -220,7 +223,12 @@ static void send_command_to_node(uint8_t node_id, mesh_command_t cmd,
     pkt.command = cmd;
     pkt.value   = value;
 
-    mesh_send(mac, &pkt, sizeof(pkt));
+    //TODO: Check Error in Mesh Send
+    esp_err_t err =  mesh_send(mac, &pkt, sizeof(pkt));
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to send command %u to node %u: %s",
+                 cmd, node_id, esp_err_to_name(err));
+    }
     ESP_LOGI(TAG, "Sent command %u (value=%u) to node %u", cmd, value, node_id);
 }
 

@@ -63,48 +63,66 @@ An optional **Hub** (a standard ESP32-S3) can be added to the mesh for monitorin
 
 We have structured the development into four iterative sprints:
 
-### Sprint 1 — Hardware Bring-up & Basic Mesh
+| Sprint | Tasks | Completed | Status |
+|---|---|---|---|
+| Sprint 1 — Hardware Bring-up & Basic Mesh | 6 | 6 | ✅ Complete |
+| Sprint 2 — Audio Pipeline & Adaptive Masking | 6 | 6 | ✅ Complete |
+| Sprint 3 — Acoustic Echo Cancellation | 4 | 4 | ✅ Complete |
+| Sprint 4 — Hub Dashboard & KPI Tracking | 13 | 5 | 🚧 In Progress |
+
+### Sprint 1 — Hardware Bring-up & Basic Mesh ✅
 
 **Goal:** Two devices powered on, capturing audio, playing audio, and talking over ESP-NOW.
 
-- Development environment (ESP-IDF, FreeRTOS)
-- I2S microphone driver — raw audio capture
-- MAX98357A + DAEX25 driver — play tones and noise
-- ESP-NOW basic communication
-- Node discovery (broadcast HELLO, maintain neighbor list)
-- Mechanical isolation testing (minimize transducer vibration reaching the mic)
+- ✅ Development environment (ESP-IDF, FreeRTOS)
+- ✅ I2S microphone driver — raw audio capture
+- ✅ MAX98357A + DAEX25 driver — play tones and noise
+- ✅ ESP-NOW basic communication
+- ✅ Node discovery (broadcast HELLO, maintain neighbor list)
+- ✅ Mechanical isolation testing
 
-### Sprint 2 — Audio Pipeline & Adaptive Masking
+### Sprint 2 — Audio Pipeline & Adaptive Masking ✅
 
 **Goal:** Each device detects speech and emits adaptive Pink/Brown noise independently.
 
-- Double-buffered I2S capture (DMA ping-pong buffers)
-- Voice Activity Detection (VAD) — energy-based + spectral
-- Pink/Brown noise generation
-- Adaptive Masking Algorithm — scale output proportionally to input speech
-- Autonomous operation (each node masks based on its own mic)
-- Real-room testing and parameter tuning
+- ✅ Double-buffered I2S capture (DMA ping-pong buffers)
+- ✅ Voice Activity Detection (VAD) — VADNet1 + energy-based
+- ✅ Pink/Brown noise generation
+- ✅ Adaptive Masking Algorithm — scale output proportionally to input speech
+- ✅ Autonomous operation (each node masks based on its own mic)
+- ✅ Real-room testing and parameter tuning
 
-### Sprint 3 — Acoustic Echo Cancellation
+### Sprint 3 — Acoustic Echo Cancellation ✅
 
 **Goal:** Eliminate feedback loops where the microphone hears its own transducer output.
 
-- NLMS (Normalized Least Mean Squares) adaptive filter
-- Echo path estimation (transducer → surface → air → mic)
-- Double-talk detection (Geigel algorithm)
-- Integration: Mic → AEC → VAD → Masking
-- Long-duration stability testing (2h+ continuous)
+- ✅ NLMS (Normalized Least Mean Squares) adaptive filter
+- ✅ Echo path estimation (transducer → surface → air → mic)
+- ✅ Double-talk detection (Geigel algorithm)
+- ✅ Integration: Mic → AEC → VAD → Masking
+- ✅ Long-duration stability testing (2h+ continuous)
+- ✅ Device role system (Node / Hub Kconfig toggle)
+- ✅ Battery monitoring component (voltage + percentage + charger status)
 
-### Sprint 4 — Hub Dashboard & Hardware Finalization
+### Sprint 4 — Hub Dashboard & KPI Tracking 🚧
 
-**Goal:** Full control interface + 3D-printed enclosure.
+**Goal:** Full control interface + 3D-printed enclosure + performance monitoring.
 
-- Hub firmware (WiFi softAP + ESP-NOW simultaneous)
-- REST API (`GET /api/nodes`, `POST /api/node/{id}/mute`, etc.)
-- Web dashboard (HTML/CSS/JS, served from Hub's SPIFFS)
-- Control features: mute per node, global mute, volume control, battery stats
-- 3D-printed enclosure design with mic/transducer isolation chambers
-- Full system assembly and long-duration test
+| Task | Issue | Status |
+|---|---|---|
+| 4.1 Hub ESP32 Firmware | [#19](https://github.com/GabrieleTurchetti/privacy-shield/issues/19) | ✅ Done |
+| 4.2 Web Dashboard (HTML/CSS/JS) | [#20](https://github.com/GabrieleTurchetti/privacy-shield/issues/20) | ✅ Done |
+| 4.3 Hub REST API | [#21](https://github.com/GabrieleTurchetti/privacy-shield/issues/21) | ✅ Done |
+| 4.4 Mesh Nodes Receive Commands | [#22](https://github.com/GabrieleTurchetti/privacy-shield/issues/22) | ✅ Done |
+| 4.5 3D-Printed Enclosure Design | [#23](https://github.com/GabrieleTurchetti/privacy-shield/issues/23) | ✅ Done |
+| 4.6 Enclosure Assembly + Testing | [#24](https://github.com/GabrieleTurchetti/privacy-shield/issues/24) | ⬜ Pending |
+| 4.7 KPI — CPU Utilization | [#46](https://github.com/GabrieleTurchetti/privacy-shield/issues/46) | ⬜ Pending |
+| 4.8 KPI — System Uptime + Task Health | [#47](https://github.com/GabrieleTurchetti/privacy-shield/issues/47) | ⬜ Pending |
+| 4.9 KPI — Packet Delivery Ratio (PDR) | [#48](https://github.com/GabrieleTurchetti/privacy-shield/issues/48) | 🚧 In Progress |
+| 4.10 KPI — Packet Loss Rate | [#49](https://github.com/GabrieleTurchetti/privacy-shield/issues/49) | 🚧 In Progress |
+| 4.11 KPI — System Latency (Mic-to-Speaker) | [#50](https://github.com/GabrieleTurchetti/privacy-shield/issues/50) | ⬜ Pending |
+| 4.12 KPI — Adaptive Response Time | [#51](https://github.com/GabrieleTurchetti/privacy-shield/issues/51) | ⬜ Pending |
+| 4.13 AEC Reference Delay Calibration | [#61](https://github.com/GabrieleTurchetti/privacy-shield/issues/61) | ⬜ Pending |
 
 ---
 

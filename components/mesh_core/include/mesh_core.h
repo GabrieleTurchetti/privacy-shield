@@ -172,10 +172,12 @@ esp_err_t mesh_send_status(void *arg);
 
 /**
  * @brief Send ACK packet (ACK are sent only for status messages).
- * 
- * @param mac   Destination MAC (the node that sent the STATUS).
+ *
+ * @param mac        Destination MAC (the node that sent the STATUS).
+ * @param status_ts  timestamp_ms of the STATUS being acknowledged (echoed back
+ *                   so the sender can match the ACK to that specific STATUS).
  */
-esp_err_t mesh_send_ack(const uint8_t *mac);
+esp_err_t mesh_send_ack(const uint8_t *mac, uint32_t status_ts);
 
 /**
  * @brief Get a pointer to the global mesh state (for dashboards, etc.).
