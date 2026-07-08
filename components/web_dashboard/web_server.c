@@ -113,7 +113,7 @@ esp_err_t web_server_init(void) {
     httpd_register_uri_handler(s_server, &node_mute);
 
     httpd_uri_t node_unmute = {
-        .uri       = "/api/node/unmute",
+        .uri       = "/api/node/unmute*",
         .method    = HTTP_POST,
         .handler   = api_node_unmute_post_handler,
     };

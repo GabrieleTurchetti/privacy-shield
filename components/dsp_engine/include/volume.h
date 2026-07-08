@@ -111,7 +111,7 @@ void apply_volume(int16_t *buffer, int count, float level);
  */
 uint8_t volume_process_frame(volume_state_t *vol,
                              const int16_t *mic_in, int16_t *noise_out,
-                             int count, bool *masking_active);
+                             int count, bool *masking_active, bool is_vad_speech);
 
 /**
  * @brief This method is used to force amplifier to set a specific volume

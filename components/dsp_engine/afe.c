@@ -286,24 +286,18 @@ void audio_afe_fetch(void *pvParameters) {
 				bool masking;
 				uint8_t volume_pct = 0;
 
-				if (AFE_STATE == AUDIO_AFE_VAD_SPEECH) {
-					// Someone talking — normal volume from RMS
-					volume_pct = volume_process_frame(
-						&vol_state, microphone_buffer, speaker_buffer,
-						feed_chunksize, &masking);
-				} else {
-					// Silence — force ramp to zero
-					float level = volume_ramp(&vol_state, 0.0f);
-					apply_volume(speaker_buffer, feed_chunksize, level);
-					masking = false;
-				}
+				bool is_speech = (AFE_STATE == AUDIO_AFE_VAD_SPEECH);
+
+				volume_pct = volume_process_frame(
+					&vol_state, microphone_buffer, speaker_buffer,
+					feed_chunksize, &masking, is_speech
+				);
+
 				if (abs(volume_pct - last_volume) >= 5) {
 					if (masking) {
-						ESP_LOGI(TAG, "Masking active — volume %u%%",
-								 volume_pct);
+						ESP_LOGI(TAG, "Masking active — volume %u%%", volume_pct);
 					} else {
-						ESP_LOGI(TAG, "Masking inactive — volume %u%%",
-								 volume_pct);
+						ESP_LOGI(TAG, "Masking inactive — volume %u%%", volume_pct);
 					}
 					last_volume = volume_pct;
 				}

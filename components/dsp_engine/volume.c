@@ -77,7 +77,7 @@ void apply_volume(int16_t *buffer, int count, float level) {
 
 uint8_t volume_process_frame(volume_state_t *vol,
                              const int16_t *mic_in, int16_t *noise_out,
-                             int count, bool *masking_active) {
+                             int count, bool *masking_active, bool is_vad_speech) {
     volume_ensure_mutex();
     VOLUME_LOCK();
     bool vol_override = is_volume_override;
@@ -89,12 +89,18 @@ uint8_t volume_process_frame(volume_state_t *vol,
     float target = 0.0f;
     float current_level = 0.0f;
 
-    /* 1. Calculate the target volume based on override or microphone RMS */
-    if (vol_override) {
-        target = cmd_vol;
+    /* 1. Calculate target volume: Silence has priority over volume override */
+    if (!is_vad_speech) {
+        /* VAD detects silence, force target to 0 */
+        target = 0.0f;
     } else {
-        float rms = compute_rms(mic_in, count);
-        target = rms_to_volume(rms, vol->noise_floor);
+        /* VAD detects speech, check if we should use override or RMS */
+        if (vol_override) {
+            target = cmd_vol;
+        } else {
+            float rms = compute_rms(mic_in, count);
+            target = rms_to_volume(rms, vol->noise_floor);
+        }
     }
 
     /* 2 & 3. Handle immediate cut (mute) vs smooth ramp */
