@@ -13,26 +13,29 @@
 #include "nvs_flash.h"
 #include "log_tags.h"
 #include "mesh_core.h"
+#include "freertos/queue.h"
+#include "delivery_ratio.h"
 
-#define MESH_ACK_ROLLING_WINDOW_SIZE 100
 static const char *TAG = LOG_TAG_MESH_CORE;
+
+/* ---- ACK worker (keeps esp_now_send out of the Wi-Fi recv callback) ---- */
+typedef struct { uint8_t mac[ESP_NOW_ETH_ALEN]; uint32_t status_ts; } ack_req_t;
+static QueueHandle_t s_ack_queue = NULL;
 
 /* -------------------------------------------------------------------------- */
 /*  Internal state                                                            */
 /* -------------------------------------------------------------------------- */
 
 mesh_state_t s_mesh = {0};
+wifi_mode_t l_wifi_mode = WIFI_MODE_NULL;
 static mesh_recv_callback_t s_user_callback = NULL;
 static uint8_t node_id = 0;
 static mesh_status_callback_t s_status_callback;
 static volume_command_cb *s_volume_command_callback;
 static SemaphoreHandle_t s_mesh_mutex = NULL;
-static int global_ack_counter = 0;
 
-static int rolling_window [MESH_ACK_ROLLING_WINDOW_SIZE] = {0};
-static int rolling_index = 0;
-static int rolling_ack = 0;
-static int rolling_ack_counter = 0;
+static void  ack_task(void *arg);
+
 
 /* -------------------------------------------------------------------------- */
 /* Packet received callback — handle incoming mesh packets,                   */
@@ -44,6 +47,10 @@ static void on_mesh_packet(const uint8_t *src_mac, const void *data, size_t len)
 
     switch (hdr->type) {
         case MESH_PKT_HELLO:
+            if(len < sizeof(mesh_hello_pkt_t)) {
+                ESP_LOGW(LOG_TAG_DISCOVERY, "Received HELLO packet too short (%zu bytes)", len);
+                return;
+            }
             ESP_LOGI(LOG_TAG_DISCOVERY, "HELLO from node %u (" MACSTR ")", hdr->src_id, MAC2STR(src_mac));
             break;
 
@@ -54,11 +61,14 @@ static void on_mesh_packet(const uint8_t *src_mac, const void *data, size_t len)
                          status->header.src_id, status->masking_active ? "ON" : "OFF",
                          status->volume, status->battery_pct);
                 if (s_status_callback) s_status_callback(status, src_mac);
-                mesh_send_ack(src_mac);  // Send ACK back to the node
+                ack_req_t req = { .status_ts = status->header.timestamp_ms };
+                memcpy(req.mac, src_mac, ESP_NOW_ETH_ALEN);
+                if (s_ack_queue) xQueueSend(s_ack_queue, &req, 0);   /* non-blocking */
             }
             break;
 
         case MESH_PKT_COMMAND:
+            //ESP_LOGI(LOG_TAG_DISCOVERY, "COMMAND packet received from node %u", hdr->src_id);
             if (len >= sizeof(mesh_command_pkt_t)) {
                 const mesh_command_pkt_t *cmd = (const mesh_command_pkt_t *)data;
                 ESP_LOGI(LOG_TAG_DISCOVERY, "COMMAND from node %u: cmd=%u val=%u", cmd->header.src_id,
@@ -90,14 +100,12 @@ static void on_mesh_packet(const uint8_t *src_mac, const void *data, size_t len)
             break;
         case MESH_PKT_ACK:
             ESP_LOGD(LOG_TAG_DISCOVERY, "ACK from node %u", hdr->src_id);
-            mesh_lock();
-            global_ack_counter++;
-            if (rolling_window[rolling_ack] > 0) {
-                rolling_window[rolling_ack] = 0;
-                rolling_ack_counter++;
+            if (len >= sizeof(mesh_ack_pkt_t)) {
+                const mesh_ack_pkt_t *ack = (const mesh_ack_pkt_t *)data;
+                mesh_lock(); 
+                pending_match(src_mac, ack->ack_timestamp_ms); 
+                mesh_unlock();
             }
-            rolling_ack = (rolling_ack + 1) % MESH_ACK_ROLLING_WINDOW_SIZE;
-            mesh_unlock();
             break;
 
         default:
@@ -207,6 +215,7 @@ esp_err_t mesh_init(wifi_mode_t wifi_mode, mesh_status_callback_t status_cb, vol
     memcpy(broadcast_peer.peer_addr, broadcast_mac, ESP_NOW_ETH_ALEN);
     broadcast_peer.channel = 0;     /* Use current channel */
     broadcast_peer.encrypt = false; /* No encryption for now */
+    l_wifi_mode = wifi_mode;
 
     /* Adding broadcast peer may fail if already added — ignore */
     esp_now_add_peer(&broadcast_peer);
@@ -218,9 +227,7 @@ esp_err_t mesh_init(wifi_mode_t wifi_mode, mesh_status_callback_t status_cb, vol
 
     /* Fill in our state */
     // This way each node get its own id automatically
-    uint8_t mac[6];
-    esp_efuse_mac_get_default(mac);
-    node_id = (mac[3] ^ mac[4] ^ mac[5]) % 254 + 1;  // range 1–254
+    node_id = get_node_id();
     s_mesh.my_id = node_id;
     s_mesh.initialized = true;
 
@@ -232,7 +239,11 @@ esp_err_t mesh_init(wifi_mode_t wifi_mode, mesh_status_callback_t status_cb, vol
         ESP_LOGE(TAG, "Failed to create mesh mutex");
         return ESP_FAIL;
     }
-
+    
+    // Create a queue for ACK requests and start the ACK task
+    s_ack_queue = xQueueCreate(16, sizeof(ack_req_t));
+    xTaskCreate(ack_task, "ack", 3072, NULL, 3, NULL);
+    
     s_status_callback = status_cb;
     s_volume_command_callback = command_cb;
 
@@ -245,13 +256,12 @@ esp_err_t mesh_init(wifi_mode_t wifi_mode, mesh_status_callback_t status_cb, vol
     return ESP_OK;
 }
 
-uint8_t get_node_id() {
-    if(node_id == 0){
-        uint8_t mac[6];
-        esp_efuse_mac_get_default(mac);
-        node_id = (mac[3] ^ mac[4] ^ mac[5]) % 254 + 1;
-    }
-    return node_id;
+uint8_t get_node_id(void) {
+    //use all 6 bytes of MAC to derive a node ID in the range 1–254
+    uint8_t mac[6]; esp_efuse_mac_get_default(mac);
+    uint32_t h = 2166136261u;                 
+    for (int i = 0; i < 6; i++) { h ^= mac[i]; h *= 16777619u; }
+    return (uint8_t)(h % 254) + 1;            
 }
 
 void mesh_lock(void) {
@@ -266,9 +276,29 @@ void mesh_unlock(void) {
     }
 }
 
+bool is_broadcast(const uint8_t mac[6]) {
+    for (int i = 0; i < 6; i++) {
+        if (mac[i] != 0xFF) {
+            return false;
+        }
+    }
+    return true;
+}
+
 esp_err_t mesh_send(const uint8_t *mac, const void *data, size_t len) {
+    //ESP_LOGI(TAG, "MESH INITALIZED: %d, LEN: %d", s_mesh.initialized, len);
     if (!s_mesh.initialized) return ESP_ERR_INVALID_STATE;
     if (len > MESH_PAYLOAD_MAX) return ESP_ERR_INVALID_ARG;
+
+    //ESP_LOGI(TAG, "Sending packet to " MACSTR " (len=%zu)", MAC2STR(mac), len);
+    if (!is_broadcast(mac) && !esp_now_is_peer_exist(mac)) {
+        esp_now_peer_info_t p = {0}; 
+        memcpy(p.peer_addr, mac, 6);
+        p.channel = 0; 
+        p.encrypt = false;
+        p.ifidx   = (l_wifi_mode == WIFI_MODE_AP) ? WIFI_IF_AP : WIFI_IF_STA;
+        esp_now_add_peer(&p);
+    }
 
     return esp_now_send(mac, (const uint8_t *)data, len);
 }
@@ -289,44 +319,34 @@ esp_err_t mesh_send_hello(void) {
 }
 
 
-esp_err_t mesh_send_ack(const uint8_t *mac) {
+esp_err_t mesh_send_ack(const uint8_t *mac, uint32_t status_ts) {
     mesh_ack_pkt_t pkt = {0};
-    pkt.header.type        = MESH_PKT_ACK;
-    pkt.header.src_id      = s_mesh.my_id;
+    pkt.header.type = MESH_PKT_ACK;
+    pkt.header.src_id = get_node_id();
     pkt.header.timestamp_ms = pdTICKS_TO_MS(xTaskGetTickCount());
-    pkt.ack_timestamp_ms = pkt.header.timestamp_ms;
-
-    ESP_LOGD(TAG, "Sending ACK (node %u)", s_mesh.my_id);
+    pkt.ack_timestamp_ms = status_ts;          /* the STATUS we're acking */
     return mesh_send(mac, &pkt, sizeof(pkt));
 }
 
 esp_err_t mesh_send_status(void *arg){
     status_task_params_t *params = (status_task_params_t *)arg;
-    TickType_t last_wake = xTaskGetTickCount();
     mesh_status_pkt_t status = {0};
     status.header.type = MESH_PKT_STATUS;
     status.header.src_id = params->node_id;
-    status.header.timestamp_ms = pdTICKS_TO_MS(xTaskGetTickCount());
+    uint32_t now_ms = pdTICKS_TO_MS(xTaskGetTickCount());
+    status.header.timestamp_ms = now_ms;
     status.masking_active = params->is_speech() /* read from VAD state */;
     status.volume = params->get_volume() /* read from current volume */;
     status.battery_pct = params->get_battery();  // placeholder, real sensor later
-    int count = mesh_discovery_count();
+    status.uptime_s = now_ms / 1000;
+    
+    //DELIVERY RATIO CALCULATION
     mesh_lock();
-    int entries = (rolling_index - rolling_ack + MESH_ACK_ROLLING_WINDOW_SIZE) % MESH_ACK_ROLLING_WINDOW_SIZE;
-    if (entries == 0) entries = 1;  // avoid divide by zero
-    status.delivery_ratio = (float)rolling_ack_counter / (float)entries;
+    pending_reap(now_ms);
+    for (int i = 0; i < MESH_MAX_NEIGHBORS; i++)          /* read table directly – we hold the lock */
+        if (s_mesh.neighbors[i].active) pending_add(s_mesh.neighbors[i].mac, now_ms, now_ms);
+    status.delivery_ratio = delivery_ratio_now();
     status.packet_loss_rate = 1.0f - status.delivery_ratio;
-    status.uptime_s = xTaskGetTickCount() * portTICK_PERIOD_MS / 1000;
-    for (int i = 0; i < count; i++) {
-        int prev = (rolling_ack == 0) ? (MESH_ACK_ROLLING_WINDOW_SIZE - 1) : (rolling_ack - 1);
-        if (rolling_index == prev && rolling_window[rolling_ack] == 1) {
-            rolling_window[rolling_ack] = 0;
-            rolling_ack_counter--;
-            rolling_ack = (rolling_ack + 1) % MESH_ACK_ROLLING_WINDOW_SIZE;
-        }
-        rolling_window[rolling_index % MESH_ACK_ROLLING_WINDOW_SIZE] = 1;
-        rolling_index = (rolling_index + 1) % MESH_ACK_ROLLING_WINDOW_SIZE;
-    }
     mesh_unlock();
     return mesh_broadcast(&status, sizeof(status));
 }
@@ -337,4 +357,11 @@ const mesh_state_t *mesh_get_state(void) {
 
 void mesh_register_recv_callback(mesh_recv_callback_t cb) {
     s_user_callback = cb;
+}
+
+static void ack_task(void *arg) {
+    ack_req_t req;
+    for (;;)
+        if (xQueueReceive(s_ack_queue, &req, portMAX_DELAY) == pdTRUE)
+            mesh_send_ack(req.mac, req.status_ts);
 }

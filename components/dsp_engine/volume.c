@@ -89,7 +89,7 @@ uint8_t volume_process_frame(volume_state_t *vol,
     float target = 0.0f;
     float current_level = 0.0f;
 
-    /* 1. Calculate target volume: Silence has priority over volume override */
+    /* Calculate target volume: Silence has priority over volume override */
     if (!is_vad_speech) {
         /* VAD detects silence, force target to 0 */
         target = 0.0f;
@@ -103,7 +103,7 @@ uint8_t volume_process_frame(volume_state_t *vol,
         }
     }
 
-    /* 2 & 3. Handle immediate cut (mute) vs smooth ramp */
+    /* Handle immediate cut (mute) vs smooth ramp */
     if (mask_override && cmd_m == false) {
         /* Hard cut to 0: bypass ramp and reset internal state to prevent glitches */
         current_level = 0.0f;
@@ -113,14 +113,14 @@ uint8_t volume_process_frame(volume_state_t *vol,
         current_level = volume_ramp(vol, target);
     }
 
-    /* 4. Set the final masking state to return to afe.c */
+    /* Set the final masking state to return to afe.c */
     if (mask_override) {
         *masking_active = cmd_m;
     } else {
         *masking_active = (current_level > 0.05f);  /* >5% = actively masking */
     }
 
-    /* 5. Apply the calculated volume to the output buffer */
+    /* Apply the calculated volume to the output buffer */
     apply_volume(noise_out, count, current_level);
 
     VOLUME_LOCK();

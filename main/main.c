@@ -117,7 +117,7 @@ void app_main(void) {
     /* ── Mesh (ESP-NOW) — receives STATUS from nodes ── */
     ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
     ESP_ERROR_CHECK(mesh_init(WIFI_MODE_AP, web_dashboard_update_status, NULL));
-    xTaskCreate(hello_task, "hello", 2048, NULL, 1, NULL);
+    xTaskCreate(hello_task, "hello", 4096, NULL, 1, NULL);
     xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
     ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ " MACSTR,
              MAC2STR(mesh_get_state()->my_mac));
@@ -155,7 +155,7 @@ void app_main(void) {
 	commands->unlock = volume_unlock;
     ESP_ERROR_CHECK(mesh_init(WIFI_MODE_STA,NULL, commands));
     
-    xTaskCreate(hello_task, "hello", 2048, NULL, 1, NULL);
+    xTaskCreate(hello_task, "hello", 4096, NULL, 1, NULL);
     xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
 
 	status_task_params_t *params = malloc(sizeof(*params));
