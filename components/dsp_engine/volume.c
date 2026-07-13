@@ -15,6 +15,7 @@ static bool is_masking_override = false;
 static bool cmd_mask = false;
 static float cmd_volume_level = 0.0f;
 static float level;
+static uint8_t volume_percentage = 100;
 static SemaphoreHandle_t s_volume_mutex = NULL;
 
 #define VOLUME_LOCK()    xSemaphoreTake(s_volume_mutex, portMAX_DELAY)
@@ -64,14 +65,14 @@ float rms_to_volume(float rms, float noise_floor) {
 
 float volume_ramp(volume_state_t *vol, float target) {
     float coeff = (target > vol->current) ? vol->attack_coeff : vol->release_coeff;
-    vol->current += coeff * (target - vol->current);
+    vol->current += coeff * (target - vol->current);  /* Apply percentage scaling */
     return vol->current;
 }
 
 void apply_volume(int16_t *buffer, int count, float level) {
     if (level >= 1.0f) return;  /* No scaling needed */
     for (int i = 0; i < count; i++) {
-        buffer[i] = (int16_t)((float)buffer[i] * level);
+        buffer[i] = (int16_t)((float)buffer[i] * level * volume_percentage / 100.0f);
     }
 }
 
@@ -160,4 +161,20 @@ uint8_t get_volume() {
     uint8_t v = (uint8_t)(level * 100);
     VOLUME_UNLOCK();
     return v;
+}
+
+uint8_t get_volume_percentage() {
+    volume_ensure_mutex();
+    VOLUME_LOCK();
+    uint8_t v = volume_percentage;
+    VOLUME_UNLOCK();
+    return v;
+}
+
+void set_volume_percentage(uint8_t percentage) {
+    volume_ensure_mutex();
+    VOLUME_LOCK();
+    if (percentage > 100) percentage = 100;
+    volume_percentage = percentage;
+    VOLUME_UNLOCK();
 }

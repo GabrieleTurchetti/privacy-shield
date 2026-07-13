@@ -104,6 +104,7 @@ typedef struct {
     void (*set_volume)(uint8_t);
     void (*set_masking)(uint8_t);
     void (*unlock)(void);
+    void (*set_volume_percentage)(uint8_t);
 } volume_command_cb;
 
 /* -------------------------------------------------------------------------- */
@@ -273,6 +274,7 @@ typedef struct {
     bool   (*is_speech)(void); //is speech
     uint8_t (*get_volume)(void); //get volume
     uint8_t (*get_battery)(void); //get battery
+    uint8_t (*get_volume_percentage)(void); //get volume percentage
 } status_task_params_t;
 
 void status_task(void *arg);

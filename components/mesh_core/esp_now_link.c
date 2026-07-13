@@ -82,7 +82,7 @@ static void on_mesh_packet(const uint8_t *src_mac, const void *data, size_t len)
                         s_volume_command_callback->set_masking(1);
                         break;
                     case MESH_CMD_SET_VOLUME:
-                        s_volume_command_callback->set_volume(cmd->value);
+                        s_volume_command_callback->set_volume_percentage(cmd->value);
                         break;
                     case MESH_CMD_REBOOT:
                         vTaskDelay(pdMS_TO_TICKS(100));  // let log flush
@@ -336,7 +336,7 @@ esp_err_t mesh_send_status(void *arg){
     uint32_t now_ms = pdTICKS_TO_MS(xTaskGetTickCount());
     status.header.timestamp_ms = now_ms;
     status.masking_active = params->is_speech() /* read from VAD state */;
-    status.volume = params->get_volume() /* read from current volume */;
+    status.volume = params->get_volume_percentage() /* read from current volume */;
     status.battery_pct = params->get_battery();  // placeholder, real sensor later
     status.uptime_s = now_ms / 1000;
     

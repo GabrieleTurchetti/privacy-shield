@@ -119,6 +119,7 @@ uint8_t volume_process_frame(volume_state_t *vol,
  * @param value: pass the value that represents the desired volume (should be from 0 to 100 but it will be scaled from 0 to 1 as required by volume.c)
  */
 void volume_set_command(uint8_t value);
+void set_volume_percentage(uint8_t percentage);
 
 
 /**
@@ -141,6 +142,7 @@ void volume_unlock();
  *
  */
 uint8_t get_volume();
+uint8_t get_volume_percentage();
 
 #ifdef __cplusplus
 }

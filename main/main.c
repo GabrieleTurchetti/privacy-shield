@@ -153,6 +153,7 @@ void app_main(void) {
 	commands->set_volume = volume_set_command;
 	commands->set_masking = mask_set_command;
 	commands->unlock = volume_unlock;
+	commands->set_volume_percentage = set_volume_percentage;
     ESP_ERROR_CHECK(mesh_init(WIFI_MODE_STA,NULL, commands));
     
     xTaskCreate(hello_task, "hello", 4096, NULL, 1, NULL);
@@ -166,6 +167,7 @@ void app_main(void) {
 	params->node_id     = node_id;
 	params->is_speech   = is_afe_speech;
 	params->get_volume  = get_volume;
+	params->get_volume_percentage = get_volume_percentage;
 	params->get_battery = stub_100;
 	xTaskCreate(status_task, "status", 4096, params, 1, NULL);
 	ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ node %u, " MACSTR,
