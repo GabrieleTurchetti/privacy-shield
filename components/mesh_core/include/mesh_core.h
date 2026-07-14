@@ -67,6 +67,10 @@ typedef struct __attribute__((packed)) {
     float delivery_ratio;  /* ratio of ACKs received vs STATUS sent (0.0-1.0) */
     float packet_loss_rate; /* (0.0-1.0) */
     uint32_t uptime_s;       /* seconds since boot */
+    uint8_t  cpu0_utilization; /* CPU0 utilization percentage (0-100) */
+    uint8_t  cpu1_utilization; /* CPU1 utilization percentage (0-100) */
+    uint32_t heap_free;        /* Free heap size in bytes */
+    uint32_t heap_largest_block; /* Largest free heap block in bytes */
 } mesh_status_pkt_t;
 
 //Used to pass web dashboard refresh method
@@ -275,6 +279,11 @@ typedef struct {
     uint8_t (*get_volume)(void); //get volume
     uint8_t (*get_battery)(void); //get battery
     uint8_t (*get_volume_percentage)(void); //get volume percentage
+    void (*update_system_metrics)(void); //update system metrics
+    uint8_t (*get_cpu0_utilization)(void); //get CPU0 utilization
+    uint8_t (*get_cpu1_utilization)(void); //get CPU1 utilization
+    uint32_t (*get_heap_free)(void); //get free heap size
+    uint32_t (*get_heap_largest_block)(void); //get largest free heap block
 } status_task_params_t;
 
 void status_task(void *arg);

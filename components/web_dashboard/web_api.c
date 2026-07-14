@@ -27,6 +27,10 @@ typedef struct {
     uint8_t  battery_pct;
     uint32_t uptime_s;
     uint32_t last_update_ms;
+    uint8_t  cpu0;
+    uint8_t  cpu1;
+    uint32_t heap_free;
+    uint32_t heap_largest_block;
     bool     active;
 } node_status_cache_t;
 
@@ -58,6 +62,10 @@ void web_dashboard_update_status(const mesh_status_pkt_t *status,
             s_node_cache[i].volume        = status->volume;
             s_node_cache[i].battery_pct   = status->battery_pct;
             s_node_cache[i].uptime_s      = status->uptime_s;
+            s_node_cache[i].cpu0 = status->cpu0_utilization;
+            s_node_cache[i].cpu1 = status->cpu1_utilization;
+            s_node_cache[i].heap_free = status->heap_free;
+            s_node_cache[i].heap_largest_block = status->heap_largest_block;
             s_node_cache[i].last_update_ms = now;
             xSemaphoreGive(s_cache_mutex);
             return;
@@ -72,6 +80,10 @@ void web_dashboard_update_status(const mesh_status_pkt_t *status,
             s_node_cache[i].volume        = status->volume;
             s_node_cache[i].battery_pct   = status->battery_pct;
             s_node_cache[i].uptime_s      = status->uptime_s;
+            s_node_cache[i].cpu0 = status->cpu0_utilization;
+            s_node_cache[i].cpu1 = status->cpu1_utilization;
+            s_node_cache[i].heap_free = status->heap_free;
+            s_node_cache[i].heap_largest_block = status->heap_largest_block;
             s_node_cache[i].last_update_ms = now;
             s_node_cache[i].active        = true;
             xSemaphoreGive(s_cache_mutex);
@@ -128,6 +140,8 @@ static void json_append_nodes(char *buf, size_t buf_size) {
         uint8_t vol = 0, batt = 0;
         uint32_t uptime = 0;
         bool has_status = false;
+        uint8_t cpu0 = 0, cpu1 = 0;
+        uint32_t heap_free = 0, heap_largest_block = 0;
 
         for (int j = 0; j < MAX_CACHED_NODES; j++) {
             if (s_node_cache[j].active &&
@@ -136,6 +150,11 @@ static void json_append_nodes(char *buf, size_t buf_size) {
                 vol   = s_node_cache[j].volume;
                 batt  = s_node_cache[j].battery_pct;
                 uptime = s_node_cache[j].uptime_s;
+                cpu0 = s_node_cache[j].cpu0;
+                cpu1 = s_node_cache[j].cpu1;
+                heap_free = s_node_cache[j].heap_free;
+                heap_largest_block = s_node_cache[j].heap_largest_block;
+
                 has_status = true;
                 break;
             }
@@ -154,11 +173,19 @@ static void json_append_nodes(char *buf, size_t buf_size) {
             "\"masking_active\":%s,"
             "\"volume\":%u,"
             "\"battery_pct\":%u,"
+            "\"cpu0\":%u,"
+            "\"cpu1\":%u,"
+            "\"heap_free\":%lu,"
+            "\"heap_largest_block\":%lu,"
             "\"uptime_s\":%lu"
             "}", nid, mac_str,
             has_status ? (mask ? "true" : "false") : "false",
             has_status ? vol : 0,
             has_status ? batt : 0,
+            has_status ? cpu0 : 0,                                 
+            has_status ? cpu1 : 0,                                
+            (unsigned long)(has_status ? heap_free : 0),         
+            (unsigned long)(has_status ? heap_largest_block : 0),
             (unsigned long)(has_status ? uptime : 0)))
             break;
     }
@@ -457,6 +484,8 @@ static const char *DASHBOARD_HTML =
 "+'<div class=mac>'+n.mac+'</div>'"
 "+'<div class=row><span class=label>Volume</span><span class=val>'+n.volume+'%</span></div>'"
 "+'<div class=row><span class=label>Battery</span><span class=val>'+n.battery_pct+'%</span></div>'"
+"+'<div class=row><span class=label>CPU0 - CPU1</span><span class=val>'+n.cpu0+'% - '+n.cpu1+'%</span></div>'"
+"+'<div class=row><span class=label>Memory</span><span class=val>'+parseInt(n.heap_free/1024)+' KB / 7822 KB</span></div>'"
 "+'<div class=row><span class=label>Uptime</span><span class=val>'+fmtUptime(n.uptime_s)+'</span></div>'"
 "+'<div class=vol-row><span>Vol</span><input type=range min=0 max=100 value='+n.volume+' class=vol-slider data-node-id='+n.node_id+'><span>'+n.volume+'%</span></div>'"
 "+'<div class=actions>'"

@@ -57,9 +57,9 @@ static void on_mesh_packet(const uint8_t *src_mac, const void *data, size_t len)
         case MESH_PKT_STATUS:
             if (len >= sizeof(mesh_status_pkt_t)) {
                 const mesh_status_pkt_t *status = (const mesh_status_pkt_t *)data;
-                ESP_LOGI(LOG_TAG_DISCOVERY, "STATUS from node %u: masking=%s vol=%u batt=%u%%",
+                ESP_LOGI(LOG_TAG_DISCOVERY, "STATUS from node %u: masking=%s vol=%u batt=%u%% cpu0=%u%% cpu1=%u%% heap_free=%u heap_largest_block=%u",
                          status->header.src_id, status->masking_active ? "ON" : "OFF",
-                         status->volume, status->battery_pct);
+                         status->volume, status->battery_pct, status->cpu0_utilization, status->cpu1_utilization, status->heap_free, status->heap_largest_block);
                 if (s_status_callback) s_status_callback(status, src_mac);
                 ack_req_t req = { .status_ts = status->header.timestamp_ms };
                 memcpy(req.mac, src_mac, ESP_NOW_ETH_ALEN);
@@ -339,6 +339,11 @@ esp_err_t mesh_send_status(void *arg){
     status.volume = params->get_volume_percentage() /* read from current volume */;
     status.battery_pct = params->get_battery();  // placeholder, real sensor later
     status.uptime_s = now_ms / 1000;
+    params->update_system_metrics();
+    status.cpu0_utilization = params->get_cpu0_utilization();
+    status.cpu1_utilization = params->get_cpu1_utilization();
+    status.heap_free = params->get_heap_free();
+    status.heap_largest_block = params->get_heap_largest_block();
     
     //DELIVERY RATIO CALCULATION
     mesh_lock();
