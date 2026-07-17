@@ -6,6 +6,7 @@
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "esp_wifi.h"
+#include "esp_task_wdt.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
@@ -20,6 +21,8 @@
 #include <stdio.h>
 
 static const char *TAG = LOG_TAG_MAIN;
+
+RTC_DATA_ATTR static uint32_t system_reboot_counter = 0;
 
 // Shared Queue handling raw audio chunks between Core 1 and Core 0
 QueueHandle_t audio_input_queue = NULL;
@@ -121,6 +124,13 @@ void update_system_metrics(void) {
             } else if (strncmp(pxTaskStatusArray[x].pcTaskName, "IDLE1", 5) == 0) {
                 idle1_time = pxTaskStatusArray[x].ulRunTimeCounter;
             }
+
+			// Task stack high-water mark monitoring
+            if (pxTaskStatusArray[x].usStackHighWaterMark < 256) {
+                ESP_LOGW(TAG, "Task '%s' is running low on stack! High-Water Mark: %u bytes",
+                         pxTaskStatusArray[x].pcTaskName,
+                         pxTaskStatusArray[x].usStackHighWaterMark);
+            }
         }
         vPortFree(pxTaskStatusArray);
 
@@ -159,6 +169,24 @@ static uint8_t stub_100(void) { return 100; }
 void app_main(void) {
 	uart_set_baudrate(UART_NUM_0, 2000000);
 	log_levels_init();
+
+	system_reboot_counter++;
+    ESP_LOGI(TAG, "System Boot Count: %lu", system_reboot_counter);
+
+    esp_task_wdt_config_t twdt_config = {
+        .timeout_ms = 5000,
+        .idle_core_mask = (1 << portNUM_PROCESSORS) - 1,
+        .trigger_panic = true,
+    };
+
+    esp_err_t wdt_err = esp_task_wdt_init(&twdt_config);
+    if (wdt_err == ESP_ERR_INVALID_STATE) {
+        ESP_LOGI(TAG, "TWDT already initialized, applying reconfiguration...");
+        ESP_ERROR_CHECK(esp_task_wdt_reconfigure(&twdt_config));
+    } else {
+        ESP_ERROR_CHECK(wdt_err);
+    }
+
 	battery_init();
 	uint8_t node_id = get_node_id();
 
