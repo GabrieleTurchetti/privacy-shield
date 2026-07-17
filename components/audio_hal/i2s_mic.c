@@ -152,7 +152,7 @@ void audio_hal_mic_read_task(void *pvParameters) {
 
 			memcpy(packet->audio_sample, ai_buffer,
 				   feed_chunksize * sizeof(packet->audio_sample[0]));
-			packet->timestamp = current_time;
+			packet->mic_timestamp = current_time;
 			packet->sample_amount = (size_t)feed_chunksize;
 
 			/* ── Send to AFE pipeline ── */

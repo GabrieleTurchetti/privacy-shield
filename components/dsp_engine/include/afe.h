@@ -1,6 +1,7 @@
 #pragma once
 
 #include "esp_err.h"
+#include "volume.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -20,6 +21,15 @@ typedef struct {
 	int channels;
 	audio_afe_vad_state_t vad_state;
 } audio_afe_result_t;
+
+typedef struct {
+	double avg_attack;
+	double avg_release;
+	int16_t max_attack;
+	int16_t max_release;
+	int16_t min_attack;
+	int16_t min_release;
+} afe_data_points_t;
 
 /**
  * Initialize ESP-SR Audio Front End.
@@ -76,6 +86,10 @@ void audio_afe_fetch(void *pvParameters);
 void audio_afe_destroy(void);
 
 uint8_t afe_get_volume(void);
+
+static void update_afe_values(int64_t timestamp, uint16_t *buffer);
+
+afe_data_points_t get_afe_delays(void);
 
 #ifdef __cplusplus
 }

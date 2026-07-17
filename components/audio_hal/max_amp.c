@@ -10,12 +10,14 @@
 #include "global_config.h" // For pin configurations
 #include "log_tags.h"
 #include <math.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 
 static const char *TAG = LOG_TAG_AUDIO_AMP;
 static i2s_chan_handle_t tx_chan;
 extern QueueHandle_t audio_output_queue;
-static int64_t end_to_end_delay = 0;
+static uint16_t min_delay = 9999, max_delay = 0, counter = 0, avg_delay[1000];
 
 void audio_hal_speaker_init(void) {
 	ESP_LOGI(TAG, "Initializing I2S TX for MAX98357A...");
@@ -52,10 +54,37 @@ void audio_hal_speaker_init(void) {
 	ESP_LOGI(TAG, "Amplifier ready to use.");
 }
 
-int64_t get_end_to_end_delay() {
-	// Converted to ms
-	return (end_to_end_delay / 1000);
+static void update_delays(int16_t timestamp) {
+
+	avg_delay[counter] = timestamp;
+
+	if (avg_delay[counter] > max_delay) {
+		max_delay = avg_delay[counter];
+	}
+	if (avg_delay[counter] < min_delay) {
+		min_delay = avg_delay[counter];
+	}
+	counter++;
+	if (counter >= 1000) {
+		counter = 0;
+	}
 }
+
+double get_avg_delay() {
+	double sum = 0.0;
+	int counter = 0;
+	for (int i = 0; i < 1000; i++) {
+		if (avg_delay[i] != 0) {
+			sum += (double)avg_delay[i];
+			counter++;
+		}
+	}
+	return (sum / counter);
+}
+
+double get_max_delay() { return (double)max_delay; }
+
+double get_min_delay() { return (double)min_delay; }
 
 void audio_hal_speaker_task(void *pvParameters) {
 
@@ -74,8 +103,9 @@ void audio_hal_speaker_task(void *pvParameters) {
 			continue;
 		}
 
-		end_to_end_delay = (esp_timer_get_time() - packet->timestamp);
-
+		int16_t timestamp =
+			(int16_t)((esp_timer_get_time() - packet->mic_timestamp) / 1000);
+		update_delays(timestamp);
 		esp_err_t err = i2s_channel_write(tx_chan, packet->audio_sample,
 										  packet->sample_amount *
 											  sizeof(packet->audio_sample[0]),
@@ -85,8 +115,6 @@ void audio_hal_speaker_task(void *pvParameters) {
 			ESP_LOGW(TAG, "Failed to wrtie to AMP/Speaker");
 		}
 
-		ESP_LOGI(TAG, "Mic to Speaker delay: %" PRId64 " ms",
-				 get_end_to_end_delay());
 		free_audio_packet(packet);
 		packet = NULL;
 	}

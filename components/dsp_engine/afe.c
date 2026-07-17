@@ -39,18 +39,13 @@ extern QueueHandle_t audio_input_queue;
 extern QueueHandle_t audio_output_queue;
 extern QueueHandle_t audio_intermediate_queue;
 
-static audio_afe_vad_state_t AFE_STATE;
+static audio_afe_vad_state_t AFE_STATE, LAST_AFE_STATE;
 static bool valid_speaker = false;
-static uint64_t afe_delay = 0;
-static uint avg_afe_delay[1000];
-static uint min_afe_delay = 9999, max_afe_delay = 0, delay_tracker = 0;
 
-static int16_t *speaker_buffer;
-static int16_t *feed_buffer;
-
-uint8_t volume_pct = 0;
-
-uint8_t afe_get_volume(void) { return volume_pct; }
+static int16_t *speaker_buffer, *feed_buffer;
+static uint16_t min_attack = 9999, max_attack = 0, attack_counter = 0, *attack,
+				min_release = 9999, max_release = 0, release_counter = 0,
+				*release;
 
 static audio_afe_vad_state_t convert_vad_state(vad_state_t state) {
 	switch (state) {
@@ -76,12 +71,7 @@ esp_err_t audio_afe_init(const char *input_format) {
 		return ESP_ERR_INVALID_ARG;
 	}
 
-	/*
-	 * Loads ESP-SR model partition.
-	 *
-	 * Your partition table must contain a model partition,
-	 * and sdkconfig/menuconfig must include the selected AFE/VAD/NS models.
-	 */
+	// Loads ESP-SR model partition.
 	srmodel_list_t *models = esp_srmodel_init("model");
 	if (models == NULL) {
 		ESP_LOGE(TAG, "Failed to initialize SR models. Check model partition.");
@@ -113,19 +103,6 @@ esp_err_t audio_afe_init(const char *input_format) {
 	afe_config->vad_min_speech_ms = 200;
 	afe_config->vad_delay_ms = 128;
 
-	/*
-	 * NS: Noise Suppression.
-	 *
-	 * In current ESP-SR AFE, NS/NSNet availability also depends on
-	 * selected models/options in menuconfig.
-	 *
-	 * Depending on the exact ESP-SR version, this field may be:
-	 * afe_config->ns_init
-	 * or model/menuconfig-controlled.
-	 *
-	 * If this line fails to compile, comment it out and enable NS in:
-	 * idf.py menuconfig -> ESP Speech Recognition
-	 */
 #ifdef CONFIG_SR_NSN_MODEL_QUANT
 	afe_config->ns_init = true;
 #else
@@ -136,15 +113,7 @@ esp_err_t audio_afe_init(const char *input_format) {
 	afe_config->ns_init = true;
 #endif
 
-	/*
-	 * AEC: Acoustic Echo Cancellation.
-	 *
-	 * AEC only makes sense if input_format contains an R reference channel,
-	 * for example "MR" or "MMR".
-	 *
-	 * The R channel should be the audio you are sending to the speaker,
-	 * time-aligned as well as possible with the mic input.
-	 */
+	// AEC: Acoustic Echo Cancellation.
 	valid_speaker = strchr(input_format, 'R') != NULL;
 	if (valid_speaker) {
 		afe_config->aec_init = true;
@@ -184,6 +153,13 @@ esp_err_t audio_afe_init(const char *input_format) {
 
 		memset(speaker_buffer, 0, feed_chunksize * sizeof(int16_t));
 	}
+
+	// Allocating memory for data collection
+	attack = malloc(100 * sizeof(int16_t));
+	release = malloc(100 * sizeof(int16_t));
+
+	memset(attack, 0, 100 * sizeof(int16_t));
+	memset(release, 0, 100 * sizeof(int16_t));
 
 	// Track VAD state change to avoid spamming the log console
 	AFE_STATE = AUDIO_AFE_VAD_SILENCE;
@@ -277,6 +253,15 @@ void audio_afe_fetch(void *pvParameters) {
 	volume_state_t vol_state;
 	volume_init(&vol_state);
 	noise_gen_init(NOISE_TYPE_PINK);
+	int64_t attack_start_us = 0;
+	int64_t release_start_us = 0;
+	bool release_active = false;
+	bool attack_active = false;
+	uint8_t attack_target_pct = 0, release_target_pct = 0;
+
+	uint8_t VOLUME_TOLERANCE_PCT = 1, MIN_VOLUME_PCT = 1;
+	uint8_t prev_vol_target = 0;
+	uint8_t volume_pct = 0;
 
 	audio_packet_t *packet;
 	while (1) {
@@ -307,9 +292,6 @@ void audio_afe_fetch(void *pvParameters) {
 			continue;
 		}
 
-		afe_delay = esp_timer_get_time() - packet->timestamp;
-		ESP_LOGI(TAG, "MIC to AFE delay: %" PRId64 " ms", get_afe_delay());
-
 		audio_afe_vad_state_t state = convert_vad_state(result->vad_state);
 		if (state != AFE_STATE) {
 			if (state == AUDIO_AFE_VAD_SPEECH) {
@@ -327,27 +309,87 @@ void audio_afe_fetch(void *pvParameters) {
 
 			noise_gen_fill(speaker_buffer, (int)packet->sample_amount);
 			bool masking;
-			uint8_t volume_pct = 0;
 
+			last_volume = volume_pct;
 			if (AFE_STATE == AUDIO_AFE_VAD_SPEECH) {
+
 				// Someone talking — normal volume from RMS
 				volume_pct = volume_process_frame(
 					&vol_state, packet->audio_sample, speaker_buffer,
 					(int)packet->sample_amount, &masking);
+
 			} else {
 				// Silence — force ramp to zero
-				float level = volume_ramp(&vol_state, 0.0f);
+				vol_state.target = 0.0f;
+				float level = volume_ramp(&vol_state, vol_state.target);
 				apply_volume(speaker_buffer, (int)packet->sample_amount, level);
+				volume_pct = (uint8_t)(level * 100.0f);
 				masking = false;
+			}
+
+			uint8_t target_vol_pct = get_target_volume_pct(&vol_state);
+			if (prev_vol_target != target_vol_pct) {
+				ESP_LOGI(TAG, "New Volume Target = %u%%", target_vol_pct);
+			}
+			prev_vol_target = target_vol_pct;
+
+			/*
+			 * ATTACK: target is above current volume.
+			 */
+			if (!attack_active &&
+				target_vol_pct > volume_pct + VOLUME_TOLERANCE_PCT) {
+
+				attack_active = true;
+				// release_active = false;
+
+				attack_start_us = esp_timer_get_time();
+				attack_target_pct = target_vol_pct;
+			}
+
+			/*
+			 * RELEASE: target is below current volume.
+			 */
+			if (!release_active && target_vol_pct < volume_pct) {
+
+				release_active = true;
+
+				release_start_us = esp_timer_get_time();
+				release_target_pct = target_vol_pct;
+			}
+
+			/*
+			 * Attack completes when current reaches target.
+			 */
+			if (attack_active &&
+				(volume_pct + VOLUME_TOLERANCE_PCT >= attack_target_pct)) {
+
+				int64_t attack_ms =
+					(esp_timer_get_time() - attack_start_us) / 1000;
+
+				ESP_LOGI(TAG, "Attack time: %" PRId64 " ms", attack_ms);
+
+				attack_active = false;
+			}
+
+			/*
+			 * Release completes when current reaches target.
+			 */
+			if (release_active && (volume_pct <= release_target_pct)) {
+				int64_t release_ms =
+					(esp_timer_get_time() - release_start_us) / 1000;
+
+				ESP_LOGI(TAG, "Release time: %" PRId64 " ms", release_ms);
+
+				release_active = false;
 			}
 
 			if (abs(volume_pct - last_volume) >= 5) {
 				if (masking) {
 					ESP_LOGI(TAG, "Masking active — volume %u%%", volume_pct);
+
 				} else {
 					ESP_LOGI(TAG, "Masking inactive — volume %u%%", volume_pct);
 				}
-				last_volume = volume_pct;
 			}
 
 			memcpy(packet->audio_sample, speaker_buffer,
@@ -358,6 +400,7 @@ void audio_afe_fetch(void *pvParameters) {
 				free_audio_packet(packet);
 			}
 
+			LAST_AFE_STATE = AFE_STATE;
 		} else {
 			free_audio_packet(packet);
 		}
@@ -365,9 +408,54 @@ void audio_afe_fetch(void *pvParameters) {
 	}
 }
 
-int64_t get_afe_delay() {
-	// Converting to ms
-	return (int64_t)(afe_delay / 1000);
+static void update_afe_values(int64_t timestamp, uint16_t *buffer) {
+
+	if (&buffer == &attack) {
+		if (timestamp > max_attack) {
+			max_attack = timestamp;
+		}
+		if (timestamp <= min_attack) {
+			min_attack = timestamp;
+		}
+
+		buffer[attack_counter] = timestamp;
+		attack_counter++;
+	} else {
+		if (timestamp > max_release) {
+			max_release = timestamp;
+		}
+		if (timestamp <= min_release) {
+			min_release = timestamp;
+		}
+		buffer[release_counter] = timestamp;
+		release_counter++;
+	}
+}
+
+afe_data_points_t get_afe_delays() {
+	double att = 0.0;
+	double rel = 0.0;
+	int counter_att = 0;
+	int counter_rel = 0;
+
+	for (int i = 0; i < 100; i++) {
+		if (attack[i] != 0) {
+			att += (double)attack[i];
+			counter_att++;
+		}
+		if (release[i] != 0) {
+			rel += (double)release[i];
+			counter_rel++;
+		}
+	}
+	afe_data_points_t points;
+	points.avg_attack = att / 100;
+	points.avg_release = rel / 100;
+	points.max_attack = max_attack;
+	points.max_release = max_release;
+	points.min_attack = min_attack;
+	points.min_release = min_release;
+	return points;
 }
 
 bool is_afe_speech() { return AFE_STATE == AUDIO_AFE_VAD_SPEECH; }
@@ -410,6 +498,14 @@ void audio_afe_destroy(void) {
 	if (afe_handle != NULL && afe_data != NULL) {
 		afe_handle->destroy(afe_data);
 	}
+	if (speaker_buffer != NULL) {
+		free(speaker_buffer);
+	}
+	if (feed_buffer != NULL) {
+		free(feed_buffer);
+	}
+	free(attack);
+	free(release);
 
 	afe_data = NULL;
 	afe_handle = NULL;

@@ -216,7 +216,7 @@ void app_main(void) {
 
 	audio_intermediate_queue = xQueueCreate(10, queue_size);
 	if (audio_intermediate_queue == NULL) {
-		ESP_LOGE(TAG, "  [!!] Noise queue creation failed!");
+		ESP_LOGE(TAG, "  [!!] Intermediate AFE Audio queue creation failed!");
 		return;
 	}
 
