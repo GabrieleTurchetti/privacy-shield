@@ -7,6 +7,7 @@
 
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_log_timestamp.h"
 #include "esp_timer.h"
 
 #include "esp_afe_config.h"
@@ -259,7 +260,7 @@ void audio_afe_fetch(void *pvParameters) {
 	bool attack_active = false;
 	uint8_t attack_target_pct = 0, release_target_pct = 0;
 
-	uint8_t VOLUME_TOLERANCE_PCT = 1, MIN_VOLUME_PCT = 1;
+	uint8_t VOLUME_TOLERANCE_PCT = 2, MIN_VOLUME_PCT = 2;
 	uint8_t prev_vol_target = 0;
 	uint8_t volume_pct = 0;
 
@@ -329,7 +330,10 @@ void audio_afe_fetch(void *pvParameters) {
 
 			uint8_t target_vol_pct = get_target_volume_pct(&vol_state);
 			if (prev_vol_target != target_vol_pct) {
-				ESP_LOGI(TAG, "New Volume Target = %u%%", target_vol_pct);
+				if (esp_timer_get_time() % 1000000) {
+
+					ESP_LOGI(TAG, "New Volume Target = %u%%", target_vol_pct);
+				}
 			}
 			prev_vol_target = target_vol_pct;
 
@@ -340,7 +344,7 @@ void audio_afe_fetch(void *pvParameters) {
 				target_vol_pct > volume_pct + VOLUME_TOLERANCE_PCT) {
 
 				attack_active = true;
-				// release_active = false;
+				release_active = false;
 
 				attack_start_us = esp_timer_get_time();
 				attack_target_pct = target_vol_pct;
@@ -367,8 +371,10 @@ void audio_afe_fetch(void *pvParameters) {
 					(esp_timer_get_time() - attack_start_us) / 1000;
 
 				ESP_LOGI(TAG, "Attack time: %" PRId64 " ms", attack_ms);
-
+				update_afe_values(attack_ms, attack);
+				// attack_target_pct = 0;
 				attack_active = false;
+				attack_start_us = 0;
 			}
 
 			/*
@@ -379,6 +385,7 @@ void audio_afe_fetch(void *pvParameters) {
 					(esp_timer_get_time() - release_start_us) / 1000;
 
 				ESP_LOGI(TAG, "Release time: %" PRId64 " ms", release_ms);
+				update_afe_values(release_ms, release);
 
 				release_active = false;
 			}
