@@ -355,6 +355,7 @@ void audio_afe_fetch(void *pvParameters) {
 			 */
 			if (!release_active && target_vol_pct < volume_pct) {
 
+				attack_active = false;
 				release_active = true;
 
 				release_start_us = esp_timer_get_time();
