@@ -330,10 +330,10 @@ void audio_afe_fetch(void *pvParameters) {
 
 			uint8_t target_vol_pct = get_target_volume_pct(&vol_state);
 			if (prev_vol_target != target_vol_pct) {
-				if (esp_timer_get_time() % 1000000) {
-
-					ESP_LOGI(TAG, "New Volume Target = %u%%", target_vol_pct);
-				}
+				// if (esp_timer_get_time() % 1000000) {
+				//
+				// 	ESP_LOGI(TAG, "New Volume Target = %u%%", target_vol_pct);
+				// }
 			}
 			prev_vol_target = target_vol_pct;
 
@@ -375,7 +375,6 @@ void audio_afe_fetch(void *pvParameters) {
 				update_afe_values(attack_ms, attack);
 				// attack_target_pct = 0;
 				attack_active = false;
-				attack_start_us = 0;
 			}
 
 			/*
