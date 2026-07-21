@@ -20,7 +20,7 @@ void battery_init(void);
 batt_status_t battery_get_status(void);
 
 // Returns the estimated battery percentage
-int battery_get_percentage(void);
+uint8_t battery_get_percentage(void);
 
 // Returns the real battery voltage
 float battery_get_voltage(void);

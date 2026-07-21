@@ -81,17 +81,17 @@ float battery_get_voltage(void) {
     return real_battery_voltage;
 }
 
-int battery_get_percentage(void) {
+uint8_t battery_get_percentage(void) {
     float voltage = battery_get_voltage();
     window_index = (window_index + 1) % WINDOW_SIZE;
-    int avg_percentage = 0;
+    uint32_t avg_percentage = 0;
     
     // A standard LiPo is fully charged at 4.2V, and effectively empty at ~3.2V
     const float MAX_V = 4.2;
     const float MIN_V = 3.2;
 
     // Linear mapping from voltage to percentage
-    int percentage = (int)(((voltage - MIN_V) / (MAX_V - MIN_V)) * 100.0);
+    uint8_t percentage = (uint8_t)(((voltage - MIN_V) / (MAX_V - MIN_V)) * 100.0);
     if (voltage >= MAX_V) percentage = 100;
     if (voltage <= MIN_V) percentage = 0;
     percentage_window[window_index] = percentage;

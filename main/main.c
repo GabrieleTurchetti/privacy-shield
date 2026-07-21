@@ -141,8 +141,8 @@ void update_system_metrics(void) {
 
             // In SMP FreeRTOS, total run time encompasses both cores.
             // We scale up by 2 to get the percentage per core (since total_delta is 2x real time)
-            uint32_t idle0_pct = (idle0_delta * 100 * 2) / total_delta;
-            uint32_t idle1_pct = (idle1_delta * 100 * 2) / total_delta;
+            uint32_t idle0_pct = (idle0_delta * 100) / total_delta;
+            uint32_t idle1_pct = (idle1_delta * 100) / total_delta;
             
             // Utilization is the inverse of the idle percentage
             cpu0_utilization = 100 - (idle0_pct > 100 ? 100 : idle0_pct);
@@ -161,8 +161,6 @@ uint8_t get_cpu1_utilization(void) { return cpu1_utilization; }
 uint32_t get_heap_free(void) { return heap_caps_get_free_size(MALLOC_CAP_8BIT); }
 uint32_t get_heap_largest_block(void) { return heap_caps_get_largest_free_block(MALLOC_CAP_8BIT); }
 
-//This will be removed once we substitute with correct methods
-static uint8_t stub_100(void) { return 100; }
 /* -------------------------------------------------------------------------- */
 /* Entry point                                                                */
 /* -------------------------------------------------------------------------- */
@@ -258,7 +256,7 @@ void app_main(void) {
 	params->is_speech   = is_afe_speech;
 	params->get_volume  = get_volume;
 	params->get_volume_percentage = get_volume_percentage;
-	params->get_battery = stub_100;
+	params->get_battery = battery_get_percentage;
 	params->update_system_metrics        = update_system_metrics;
     params->get_cpu0_utilization              = get_cpu0_utilization;
     params->get_cpu1_utilization              = get_cpu1_utilization;
