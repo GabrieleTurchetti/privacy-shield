@@ -44,9 +44,13 @@ static audio_afe_vad_state_t AFE_STATE, LAST_AFE_STATE;
 static bool valid_speaker = false;
 
 static int16_t *speaker_buffer, *feed_buffer;
-static uint16_t min_attack = 9999, max_attack = 0, attack_counter = 0, *attack,
-				min_release = 9999, max_release = 0, release_counter = 0,
-				*release;
+static uint16_t min_attack = 9999, max_attack = 0, *attack, min_release = 9999,
+				max_release = 0, *release;
+
+static uint8_t attack_counter = 0, release_counter = 0,
+			   speaker_buffer_counter = 0;
+
+#define SPEAKER_HISTORY_SIZE 6
 
 static audio_afe_vad_state_t convert_vad_state(vad_state_t state) {
 	switch (state) {
@@ -148,11 +152,13 @@ esp_err_t audio_afe_init(const char *input_format) {
 	int feed_channels = afe_feed_channels();
 
 	if (valid_speaker) {
-		speaker_buffer = (int16_t *)malloc(feed_chunksize * sizeof(int16_t));
+		speaker_buffer = (int16_t *)malloc(SPEAKER_HISTORY_SIZE *
+										   feed_chunksize * sizeof(int16_t));
 		feed_buffer =
 			(int16_t *)malloc(feed_chunksize * feed_channels * sizeof(int16_t));
 
-		memset(speaker_buffer, 0, feed_chunksize * sizeof(int16_t));
+		memset(speaker_buffer, 0,
+			   SPEAKER_HISTORY_SIZE * feed_chunksize * sizeof(int16_t));
 	}
 
 	// Allocating memory for data collection
@@ -307,23 +313,27 @@ void audio_afe_fetch(void *pvParameters) {
 		}
 
 		if (valid_speaker) {
-
-			noise_gen_fill(speaker_buffer, (int)packet->sample_amount);
+			int speaker_index =
+				(int)speaker_buffer_counter * afe_feed_chunksize();
+			noise_gen_fill(&speaker_buffer[speaker_index],
+						   (int)packet->sample_amount);
 			bool masking;
 
 			last_volume = volume_pct;
 			if (AFE_STATE == AUDIO_AFE_VAD_SPEECH) {
 
 				// Someone talking — normal volume from RMS
-				volume_pct = volume_process_frame(
-					&vol_state, packet->audio_sample, speaker_buffer,
-					(int)packet->sample_amount, &masking);
+				volume_pct =
+					volume_process_frame(&vol_state, packet->audio_sample,
+										 &speaker_buffer[speaker_index],
+										 (int)packet->sample_amount, &masking);
 
 			} else {
 				// Silence — force ramp to zero
 				vol_state.target = 0.0f;
 				float level = volume_ramp(&vol_state, vol_state.target);
-				apply_volume(speaker_buffer, (int)packet->sample_amount, level);
+				apply_volume(&speaker_buffer[speaker_index],
+							 (int)packet->sample_amount, level);
 				volume_pct = (uint8_t)(level * 100.0f);
 				masking = false;
 			}
@@ -354,8 +364,18 @@ void audio_afe_fetch(void *pvParameters) {
 			 * RELEASE: target is below current volume.
 			 */
 			if (!release_active && target_vol_pct < volume_pct) {
+				if (attack_active) {
+					// Will no longer attack, will say attack is complete,
+					// as no larger rise is coming
+					int64_t attack_ms =
+						(esp_timer_get_time() - attack_start_us) / 1000;
 
-				attack_active = false;
+					ESP_LOGI(TAG, "Attack time: %" PRId64 " ms", attack_ms);
+					update_afe_values(attack_ms, attack);
+					// attack_target_pct = 0;
+					attack_active = false;
+				}
+				// Set to release
 				release_active = true;
 
 				release_start_us = esp_timer_get_time();
@@ -399,12 +419,17 @@ void audio_afe_fetch(void *pvParameters) {
 				}
 			}
 
-			memcpy(packet->audio_sample, speaker_buffer,
+			memcpy(packet->audio_sample, &speaker_buffer[speaker_index],
 				   packet->sample_amount * sizeof(packet->audio_sample[0]));
 
 			if (xQueueSend(audio_output_queue, &packet, 1) != pdPASS) {
 				ESP_LOGE(TAG, "Failed to send to Speaker");
 				free_audio_packet(packet);
+			}
+
+			speaker_buffer_counter++;
+			if (speaker_buffer_counter >= SPEAKER_HISTORY_SIZE) {
+				speaker_buffer_counter = 0;
 			}
 
 			LAST_AFE_STATE = AFE_STATE;
@@ -511,8 +536,13 @@ void audio_afe_destroy(void) {
 	if (feed_buffer != NULL) {
 		free(feed_buffer);
 	}
-	free(attack);
-	free(release);
+	if (attack != NULL) {
+
+		free(attack);
+	}
+	if (release != NULL) {
+		free(release);
+	}
 
 	afe_data = NULL;
 	afe_handle = NULL;
