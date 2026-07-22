@@ -67,6 +67,10 @@ typedef struct __attribute__((packed)) {
     float delivery_ratio;  /* ratio of ACKs received vs STATUS sent (0.0-1.0) */
     float packet_loss_rate; /* (0.0-1.0) */
     uint32_t uptime_s;       /* seconds since boot */
+    uint8_t  cpu0_utilization; /* CPU0 utilization percentage (0-100) */
+    uint8_t  cpu1_utilization; /* CPU1 utilization percentage (0-100) */
+    uint32_t heap_free;        /* Free heap size in bytes */
+    uint32_t heap_largest_block; /* Largest free heap block in bytes */
 } mesh_status_pkt_t;
 
 //Used to pass web dashboard refresh method
@@ -104,6 +108,7 @@ typedef struct {
     void (*set_volume)(uint8_t);
     void (*set_masking)(uint8_t);
     void (*unlock)(void);
+    void (*set_volume_percentage)(uint8_t);
 } volume_command_cb;
 
 /* -------------------------------------------------------------------------- */
@@ -172,10 +177,12 @@ esp_err_t mesh_send_status(void *arg);
 
 /**
  * @brief Send ACK packet (ACK are sent only for status messages).
- * 
- * @param mac   Destination MAC (the node that sent the STATUS).
+ *
+ * @param mac        Destination MAC (the node that sent the STATUS).
+ * @param status_ts  timestamp_ms of the STATUS being acknowledged (echoed back
+ *                   so the sender can match the ACK to that specific STATUS).
  */
-esp_err_t mesh_send_ack(const uint8_t *mac);
+esp_err_t mesh_send_ack(const uint8_t *mac, uint32_t status_ts);
 
 /**
  * @brief Get a pointer to the global mesh state (for dashboards, etc.).
@@ -271,6 +278,12 @@ typedef struct {
     bool   (*is_speech)(void); //is speech
     uint8_t (*get_volume)(void); //get volume
     uint8_t (*get_battery)(void); //get battery
+    uint8_t (*get_volume_percentage)(void); //get volume percentage
+    void (*update_system_metrics)(void); //update system metrics
+    uint8_t (*get_cpu0_utilization)(void); //get CPU0 utilization
+    uint8_t (*get_cpu1_utilization)(void); //get CPU1 utilization
+    uint32_t (*get_heap_free)(void); //get free heap size
+    uint32_t (*get_heap_largest_block)(void); //get largest free heap block
 } status_task_params_t;
 
 void status_task(void *arg);

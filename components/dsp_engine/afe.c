@@ -314,8 +314,6 @@ void audio_afe_fetch(void *pvParameters) {
 			noise_gen_fill(speaker_buffer, (int)packet->sample_amount);
 			bool masking;
 
-			last_volume = volume_pct;
-
 			// Someone talking — normal volume from RMS
 			volume_pct = volume_process_frame(
 				&vol_state, packet->audio_sample, speaker_buffer,
@@ -347,14 +345,15 @@ void audio_afe_fetch(void *pvParameters) {
 			 * RELEASE: target is below current volume.
 			 */
 			if (!release_active && target_vol_pct < volume_pct) {
+				if (attack_active) {
+					int64_t attack_ms =
+						(esp_timer_get_time() - attack_start_us) / 1000;
 
-				int64_t attack_ms =
-					(esp_timer_get_time() - attack_start_us) / 1000;
+					ESP_LOGI(TAG, "Attack time: %" PRId64 " ms", attack_ms);
+					update_attack(attack_ms);
+					attack_active = false;
+				}
 
-				ESP_LOGI(TAG, "Attack time: %" PRId64 " ms", attack_ms);
-				update_attack(attack_ms);
-
-				attack_active = false;
 				release_active = true;
 
 				release_start_us = esp_timer_get_time();
@@ -396,6 +395,7 @@ void audio_afe_fetch(void *pvParameters) {
 				} else {
 					ESP_LOGI(TAG, "Masking inactive — volume %u%%", volume_pct);
 				}
+				last_volume = volume_pct;
 			}
 
 			memcpy(packet->audio_sample, speaker_buffer,

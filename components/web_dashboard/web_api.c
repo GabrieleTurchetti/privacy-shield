@@ -27,6 +27,10 @@ typedef struct {
     uint8_t  battery_pct;
     uint32_t uptime_s;
     uint32_t last_update_ms;
+    uint8_t  cpu0;
+    uint8_t  cpu1;
+    uint32_t heap_free;
+    uint32_t heap_largest_block;
     bool     active;
 } node_status_cache_t;
 
@@ -58,6 +62,10 @@ void web_dashboard_update_status(const mesh_status_pkt_t *status,
             s_node_cache[i].volume        = status->volume;
             s_node_cache[i].battery_pct   = status->battery_pct;
             s_node_cache[i].uptime_s      = status->uptime_s;
+            s_node_cache[i].cpu0 = status->cpu0_utilization;
+            s_node_cache[i].cpu1 = status->cpu1_utilization;
+            s_node_cache[i].heap_free = status->heap_free;
+            s_node_cache[i].heap_largest_block = status->heap_largest_block;
             s_node_cache[i].last_update_ms = now;
             xSemaphoreGive(s_cache_mutex);
             return;
@@ -72,6 +80,10 @@ void web_dashboard_update_status(const mesh_status_pkt_t *status,
             s_node_cache[i].volume        = status->volume;
             s_node_cache[i].battery_pct   = status->battery_pct;
             s_node_cache[i].uptime_s      = status->uptime_s;
+            s_node_cache[i].cpu0 = status->cpu0_utilization;
+            s_node_cache[i].cpu1 = status->cpu1_utilization;
+            s_node_cache[i].heap_free = status->heap_free;
+            s_node_cache[i].heap_largest_block = status->heap_largest_block;
             s_node_cache[i].last_update_ms = now;
             s_node_cache[i].active        = true;
             xSemaphoreGive(s_cache_mutex);
@@ -118,6 +130,9 @@ static void json_append_nodes(char *buf, size_t buf_size) {
         if (!mesh->neighbors[i].active) continue;
 
         uint8_t nid = mesh->neighbors[i].node_id;
+        //These two ifs are required to avoid showing the hub itself in the list of nodes
+        if (memcmp(mesh->neighbors[i].mac, mesh->my_mac, ESP_NOW_ETH_ALEN) == 0)
+            continue; /* skip self (hub) */
         if (nid == 0) continue; /* Skip hub itself */
 
         /* Pull cached status for this node */
@@ -125,6 +140,8 @@ static void json_append_nodes(char *buf, size_t buf_size) {
         uint8_t vol = 0, batt = 0;
         uint32_t uptime = 0;
         bool has_status = false;
+        uint8_t cpu0 = 0, cpu1 = 0;
+        uint32_t heap_free = 0, heap_largest_block = 0;
 
         for (int j = 0; j < MAX_CACHED_NODES; j++) {
             if (s_node_cache[j].active &&
@@ -133,6 +150,11 @@ static void json_append_nodes(char *buf, size_t buf_size) {
                 vol   = s_node_cache[j].volume;
                 batt  = s_node_cache[j].battery_pct;
                 uptime = s_node_cache[j].uptime_s;
+                cpu0 = s_node_cache[j].cpu0;
+                cpu1 = s_node_cache[j].cpu1;
+                heap_free = s_node_cache[j].heap_free;
+                heap_largest_block = s_node_cache[j].heap_largest_block;
+
                 has_status = true;
                 break;
             }
@@ -151,11 +173,19 @@ static void json_append_nodes(char *buf, size_t buf_size) {
             "\"masking_active\":%s,"
             "\"volume\":%u,"
             "\"battery_pct\":%u,"
+            "\"cpu0\":%u,"
+            "\"cpu1\":%u,"
+            "\"heap_free\":%lu,"
+            "\"heap_largest_block\":%lu,"
             "\"uptime_s\":%lu"
             "}", nid, mac_str,
             has_status ? (mask ? "true" : "false") : "false",
             has_status ? vol : 0,
             has_status ? batt : 0,
+            has_status ? cpu0 : 0,                                 
+            has_status ? cpu1 : 0,                                
+            (unsigned long)(has_status ? heap_free : 0),         
+            (unsigned long)(has_status ? heap_largest_block : 0),
             (unsigned long)(has_status ? uptime : 0)))
             break;
     }
@@ -220,7 +250,12 @@ static void send_command_to_node(uint8_t node_id, mesh_command_t cmd,
     pkt.command = cmd;
     pkt.value   = value;
 
-    mesh_send(mac, &pkt, sizeof(pkt));
+    //TODO: Check Error in Mesh Send
+    esp_err_t err =  mesh_send(mac, &pkt, sizeof(pkt));
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to send command %u to node %u: %s",
+                 cmd, node_id, esp_err_to_name(err));
+    }
     ESP_LOGI(TAG, "Sent command %u (value=%u) to node %u", cmd, value, node_id);
 }
 
@@ -247,11 +282,21 @@ esp_err_t api_nodes_get_handler(httpd_req_t *req) {
 }
 
 esp_err_t api_node_mute_post_handler(httpd_req_t *req) {
-    int node_id = extract_node_id(req->uri);
+    int node_id = 0;
+    char id_str[8] = {0};
+    char query[32] = {0};
+
+    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK &&
+        httpd_query_key_value(query, "id", id_str, sizeof(id_str)) == ESP_OK
+    ) {
+        node_id = atoi(id_str);
+    }
+
     if (node_id < 0) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid node ID");
         return ESP_FAIL;
     }
+
     send_command_to_node(node_id, MESH_CMD_MUTE, 1);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, "{\"ok\":true}");
@@ -259,11 +304,21 @@ esp_err_t api_node_mute_post_handler(httpd_req_t *req) {
 }
 
 esp_err_t api_node_unmute_post_handler(httpd_req_t *req) {
-    int node_id = extract_node_id(req->uri);
+    int node_id = 0;
+    char id_str[8] = {0};
+    char query[32] = {0};
+
+    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK &&
+        httpd_query_key_value(query, "id", id_str, sizeof(id_str)) == ESP_OK
+    ) {
+        node_id = atoi(id_str);
+    }
+
     if (node_id < 0) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid node ID");
         return ESP_FAIL;
     }
+
     send_command_to_node(node_id, MESH_CMD_UNMUTE, 1);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, "{\"ok\":true}");
@@ -271,20 +326,25 @@ esp_err_t api_node_unmute_post_handler(httpd_req_t *req) {
 }
 
 esp_err_t api_node_volume_post_handler(httpd_req_t *req) {
-    int node_id = extract_node_id(req->uri);
-    if (node_id < 0) {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid node ID");
-        return ESP_FAIL;
-    }
-
     /* Read query string: ?level=50 */
     char query[32] = {0};
+    char id_str[8] = {0};
     char level_str[8] = {0};
+    int node_id = 0;
     int level = 50; /* default */
-    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK && httpd_query_key_value(query, "level", level_str, sizeof(level_str)) == ESP_OK)  {
+    if (httpd_req_get_url_query_str(req, query, sizeof(query)) == ESP_OK &&
+        httpd_query_key_value(query, "id", id_str, sizeof(id_str)) == ESP_OK &&
+        httpd_query_key_value(query, "level", level_str, sizeof(level_str)) == ESP_OK
+    )  {
+        node_id = atoi(id_str);
         level = atoi(level_str);
         if (level < 0) level = 0;
         if (level > 100) level = 100;
+    }
+
+    if (node_id < 0) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid node ID");
+        return ESP_FAIL;
     }
 
     send_command_to_node(node_id, MESH_CMD_SET_VOLUME, (uint8_t)level);
@@ -384,7 +444,7 @@ static const char *DASHBOARD_HTML =
 "<body>"
 "<div class=\"header\">"
 "<div><h1>Privacy Shield</h1></div>"
-"<div class=\"status\">Hub &bull; <span id=\"nodeCount\">0</span> nodes</div>"
+"<div class=\"status\">Hub • <span id=\"nodeCount\">0</span> nodes</div>"
 "</div>"
 "<div class=\"container\">"
 "<div class=\"toolbar\">"
@@ -401,34 +461,56 @@ static const char *DASHBOARD_HTML =
 "var errEl=document.getElementById('error');"
 "var dbg=document.getElementById('debug');"
 "var refreshCount=0;"
+"window.dragging=false;"
+
 "function showErr(e){errEl.style.display='block';errEl.textContent='Error: '+(e.message||e);}"
 "function hideErr(){errEl.style.display='none'}"
 "function fmtUptime(s){"
 "var h=Math.floor(s/3600),m=Math.floor((s%3600)/60);"
 "return h+'h '+m+'m'}"
+
 "function render(nodes){"
+"if(window.dragging) return;"
 "hideErr();refreshCount++;"
 "dbg.textContent='Refresh #'+refreshCount+' | nodes='+nodes.length+' | '+JSON.stringify(nodes).slice(0,500);"
 "document.getElementById('nodeCount').textContent=nodes.length;"
 "if(!nodes.length){document.getElementById('nodes').innerHTML='<div class=empty>No masking nodes detected.<br>Power on a node to get started.</div>';return}"
+
 "document.getElementById('nodes').innerHTML=nodes.map(function(n){"
 "var badge=n.masking_active?'<span class=\"badge badge-on\">MASKING</span>':'<span class=\"badge badge-off\">SILENT</span>';"
+
 "return '<div class=card>'"
 "+'<div class=name>Node '+n.node_id+' '+badge+'</div>'"
 "+'<div class=mac>'+n.mac+'</div>'"
 "+'<div class=row><span class=label>Volume</span><span class=val>'+n.volume+'%</span></div>'"
 "+'<div class=row><span class=label>Battery</span><span class=val>'+n.battery_pct+'%</span></div>'"
+"+'<div class=row><span class=label>CPU0 - CPU1</span><span class=val>'+n.cpu0+'% - '+n.cpu1+'%</span></div>'"
+"+'<div class=row><span class=label>Memory</span><span class=val>'+parseInt(n.heap_free/1024)+' KB / 7822 KB</span></div>'"
 "+'<div class=row><span class=label>Uptime</span><span class=val>'+fmtUptime(n.uptime_s)+'</span></div>'"
-"+'<div class=vol-row><span>Vol</span><input type=range min=0 max=100 value='+n.volume+' class=vol-slider oninput=\"setVolume('+n.node_id+',this.value)\"><span>'+n.volume+'%</span></div>'"
+"+'<div class=vol-row><span>Vol</span><input type=range min=0 max=100 value='+n.volume+' class=vol-slider data-node-id='+n.node_id+'><span>'+n.volume+'%</span></div>'"
 "+'<div class=actions>'"
 "+'<button class=btn-mute onclick=\"muteNode('+n.node_id+')\">Mute</button>'"
 "+'<button class=btn-unmute onclick=\"unmuteNode('+n.node_id+')\">Unmute</button>'"
 "+'</div></div>'"
-"}).join('')}"
+"}).join('');"
+
+"document.querySelectorAll('.vol-slider').forEach(function(slider){"
+"slider.addEventListener('input',function(){"
+"window.dragging=true;"
+"this.nextSibling.textContent=this.value+'%';"
+"});"
+"slider.addEventListener('change',function(){"
+"var nodeId=this.getAttribute('data-node-id');"
+"setVolume(nodeId,this.value);"
+"window.dragging=false;"
+"});"
+"});"
+"}"
+
 "function refresh(){fetch('/api/nodes').then(function(r){return r.json()}).then(render).catch(showErr)}"
-"function muteNode(id){fetch('/api/node/'+id+'/mute',{method:'POST'}).then(refresh).catch(showErr)}"
-"function unmuteNode(id){fetch('/api/node/'+id+'/unmute',{method:'POST'}).then(refresh).catch(showErr)}"
-"function setVolume(id,v){fetch('/api/node/'+id+'/volume?level='+v,{method:'POST'}).then(refresh).catch(showErr)}"
+"function muteNode(id){fetch('/api/node/mute?id='+id,{method:'POST'}).then(refresh).catch(showErr)}"
+"function unmuteNode(id){fetch('/api/node/unmute?id='+id,{method:'POST'}).then(refresh).catch(showErr)}"
+"function setVolume(id,v){fetch('/api/node/volume?level='+v+'&id='+id,{method:'POST'}).then(refresh).catch(showErr)}"
 "function globalMute(){fetch('/api/global/mute',{method:'POST'}).then(refresh).catch(showErr)}"
 "function globalUnmute(){fetch('/api/global/unmute',{method:'POST'}).then(refresh).catch(showErr)}"
 "refresh();setInterval(refresh,5000)"

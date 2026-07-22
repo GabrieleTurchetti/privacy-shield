@@ -106,21 +106,21 @@ esp_err_t web_server_init(void) {
     httpd_register_uri_handler(s_server, &nodes_get);
 
     httpd_uri_t node_mute = {
-        .uri       = "/api/node/*/mute",
+        .uri       = "/api/node/mute*",
         .method    = HTTP_POST,
         .handler   = api_node_mute_post_handler,
     };
     httpd_register_uri_handler(s_server, &node_mute);
 
     httpd_uri_t node_unmute = {
-        .uri       = "/api/node/*/unmute",
+        .uri       = "/api/node/unmute*",
         .method    = HTTP_POST,
         .handler   = api_node_unmute_post_handler,
     };
     httpd_register_uri_handler(s_server, &node_unmute);
 
     httpd_uri_t node_volume = {
-        .uri       = "/api/node/*/volume",
+        .uri       = "/api/node/volume*",
         .method    = HTTP_POST,
         .handler   = api_node_volume_post_handler,
     };
@@ -141,14 +141,14 @@ esp_err_t web_server_init(void) {
     httpd_register_uri_handler(s_server, &global_unmute);
 
     httpd_uri_t node_unlock = {
-        .uri       = "/api/node/*/unlock",
+        .uri       = "/api/node/unlock*",
         .method    = HTTP_POST,
         .handler   = api_node_unlock_post_handler,
     };
     httpd_register_uri_handler(s_server, &node_unlock);
 
     httpd_uri_t node_reboot = {
-        .uri       = "/api/node/*/reboot",
+        .uri       = "/api/node/reboot*",
         .method    = HTTP_POST,
         .handler   = api_node_reboot_post_handler,
     };

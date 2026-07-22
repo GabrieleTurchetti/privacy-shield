@@ -15,6 +15,7 @@ static bool is_masking_override = false;
 static bool cmd_mask = false;
 static float cmd_volume_level = 0.0f;
 static float level;
+static uint8_t volume_percentage = 100;
 static SemaphoreHandle_t s_volume_mutex = NULL;
 
 #define VOLUME_LOCK() xSemaphoreTake(s_volume_mutex, portMAX_DELAY)
@@ -182,4 +183,20 @@ uint8_t get_target_volume_pct(volume_state_t *vol) {
 	}
 
 	return (uint8_t)(vol->target * 100.0f);
+}
+
+uint8_t get_volume_percentage() {
+    volume_ensure_mutex();
+    VOLUME_LOCK();
+    uint8_t v = volume_percentage;
+    VOLUME_UNLOCK();
+    return v;
+}
+
+void set_volume_percentage(uint8_t percentage) {
+    volume_ensure_mutex();
+    VOLUME_LOCK();
+    if (percentage > 100) percentage = 100;
+    volume_percentage = percentage;
+    VOLUME_UNLOCK();
 }

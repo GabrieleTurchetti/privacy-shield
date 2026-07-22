@@ -122,6 +122,7 @@ uint8_t volume_process_frame(volume_state_t *vol, const int16_t *mic_in,
  * from 0 to 100 but it will be scaled from 0 to 1 as required by volume.c)
  */
 void volume_set_command(uint8_t value);
+void set_volume_percentage(uint8_t percentage);
 
 /**
  * @brief This method forces tne node to activate or deactivate the masking
@@ -142,6 +143,7 @@ void volume_unlock();
  *
  */
 uint8_t get_volume();
+uint8_t get_volume_percentage();
 
 /**
  * @brief This gets the targeted volume in percentage form (uint8_t)
