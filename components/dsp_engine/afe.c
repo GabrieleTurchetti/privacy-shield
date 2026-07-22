@@ -44,9 +44,13 @@ static audio_afe_vad_state_t AFE_STATE, LAST_AFE_STATE;
 static bool valid_speaker = false;
 
 static int16_t *speaker_buffer, *feed_buffer;
-static uint16_t min_attack = 9999, max_attack = 0, attack_counter = 0, *attack,
-				min_release = 9999, max_release = 0, release_counter = 0,
-				*release;
+static uint16_t min_attack = 9999, max_attack = 0, *attack, min_release = 9999,
+				max_release = 0, *release;
+
+static uint8_t attack_counter = 0, release_counter = 0,
+			   speaker_buffer_counter = 0;
+
+#define SPEAKER_HISTORY_SIZE 6
 
 #define AFE_DATA_BUFFER_SIZE 100
 #define SPEAKER_HISTORY_SIZE 6
@@ -151,11 +155,13 @@ esp_err_t audio_afe_init(const char *input_format) {
 	int feed_channels = afe_feed_channels();
 
 	if (valid_speaker) {
-		speaker_buffer = (int16_t *)malloc(feed_chunksize * sizeof(int16_t));
+		speaker_buffer = (int16_t *)malloc(SPEAKER_HISTORY_SIZE *
+										   feed_chunksize * sizeof(int16_t));
 		feed_buffer =
 			(int16_t *)malloc(feed_chunksize * feed_channels * sizeof(int16_t));
 
-		memset(speaker_buffer, 0, feed_chunksize * sizeof(int16_t));
+		memset(speaker_buffer, 0,
+			   SPEAKER_HISTORY_SIZE * feed_chunksize * sizeof(int16_t));
 	}
 
 	// Allocating memory for data collection
@@ -310,8 +316,10 @@ void audio_afe_fetch(void *pvParameters) {
 		}
 
 		if (valid_speaker) {
-
-			noise_gen_fill(speaker_buffer, (int)packet->sample_amount);
+			int speaker_index =
+				(int)speaker_buffer_counter * afe_feed_chunksize();
+			noise_gen_fill(&speaker_buffer[speaker_index],
+						   (int)packet->sample_amount);
 			bool masking;
 
 			// Someone talking — normal volume from RMS
@@ -398,12 +406,17 @@ void audio_afe_fetch(void *pvParameters) {
 				last_volume = volume_pct;
 			}
 
-			memcpy(packet->audio_sample, speaker_buffer,
+			memcpy(packet->audio_sample, &speaker_buffer[speaker_index],
 				   packet->sample_amount * sizeof(packet->audio_sample[0]));
 
 			if (xQueueSend(audio_output_queue, &packet, 1) != pdPASS) {
 				ESP_LOGE(TAG, "Failed to send to Speaker");
 				free_audio_packet(packet);
+			}
+
+			speaker_buffer_counter++;
+			if (speaker_buffer_counter >= SPEAKER_HISTORY_SIZE) {
+				speaker_buffer_counter = 0;
 			}
 
 			LAST_AFE_STATE = AFE_STATE;
@@ -515,8 +528,13 @@ void audio_afe_destroy(void) {
 	if (feed_buffer != NULL) {
 		free(feed_buffer);
 	}
-	free(attack);
-	free(release);
+	if (attack != NULL) {
+
+		free(attack);
+	}
+	if (release != NULL) {
+		free(release);
+	}
 
 	afe_data = NULL;
 	afe_handle = NULL;
