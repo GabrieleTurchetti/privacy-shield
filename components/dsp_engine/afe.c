@@ -48,6 +48,9 @@ static uint16_t min_attack = 9999, max_attack = 0, attack_counter = 0, *attack,
 				min_release = 9999, max_release = 0, release_counter = 0,
 				*release;
 
+#define AFE_DATA_BUFFER_SIZE 100
+#define SPEAKER_HISTORY_SIZE 6
+
 static audio_afe_vad_state_t convert_vad_state(vad_state_t state) {
 	switch (state) {
 	case VAD_SPEECH:
@@ -312,21 +315,11 @@ void audio_afe_fetch(void *pvParameters) {
 			bool masking;
 
 			last_volume = volume_pct;
-			if (AFE_STATE == AUDIO_AFE_VAD_SPEECH) {
 
-				// Someone talking — normal volume from RMS
-				volume_pct = volume_process_frame(
-					&vol_state, packet->audio_sample, speaker_buffer,
-					(int)packet->sample_amount, &masking);
-
-			} else {
-				// Silence — force ramp to zero
-				vol_state.target = 0.0f;
-				float level = volume_ramp(&vol_state, vol_state.target);
-				apply_volume(speaker_buffer, (int)packet->sample_amount, level);
-				volume_pct = (uint8_t)(level * 100.0f);
-				masking = false;
-			}
+			// Someone talking — normal volume from RMS
+			volume_pct = volume_process_frame(
+				&vol_state, packet->audio_sample, speaker_buffer,
+				(int)packet->sample_amount, &masking, is_afe_speech());
 
 			uint8_t target_vol_pct = get_target_volume_pct(&vol_state);
 			if (prev_vol_target != target_vol_pct) {
@@ -355,6 +348,12 @@ void audio_afe_fetch(void *pvParameters) {
 			 */
 			if (!release_active && target_vol_pct < volume_pct) {
 
+				int64_t attack_ms =
+					(esp_timer_get_time() - attack_start_us) / 1000;
+
+				ESP_LOGI(TAG, "Attack time: %" PRId64 " ms", attack_ms);
+				update_attack(attack_ms);
+
 				attack_active = false;
 				release_active = true;
 
@@ -372,8 +371,7 @@ void audio_afe_fetch(void *pvParameters) {
 					(esp_timer_get_time() - attack_start_us) / 1000;
 
 				ESP_LOGI(TAG, "Attack time: %" PRId64 " ms", attack_ms);
-				update_afe_values(attack_ms, attack);
-				// attack_target_pct = 0;
+				update_attack(attack_ms);
 				attack_active = false;
 			}
 
@@ -383,9 +381,10 @@ void audio_afe_fetch(void *pvParameters) {
 			if (release_active && (volume_pct <= release_target_pct)) {
 				int64_t release_ms =
 					(esp_timer_get_time() - release_start_us) / 1000;
+				update_release(release_ms);
 
 				ESP_LOGI(TAG, "Release time: %" PRId64 " ms", release_ms);
-				update_afe_values(release_ms, release);
+				// update_afe_values(release_ms, release);
 
 				release_active = false;
 			}
@@ -415,27 +414,32 @@ void audio_afe_fetch(void *pvParameters) {
 	}
 }
 
-static void update_afe_values(int64_t timestamp, uint16_t *buffer) {
+static void update_attack(int64_t timestamp) {
+	if (timestamp > max_attack) {
+		max_attack = timestamp;
+	}
+	if (timestamp < min_attack) {
+		min_attack = timestamp;
+	}
+	attack[attack_counter] = (uint16_t)timestamp;
+	;
+	attack_counter++;
+	if (attack_counter >= 100) {
+		attack_counter = 0;
+	}
+}
 
-	if (&buffer == &attack) {
-		if (timestamp > max_attack) {
-			max_attack = timestamp;
-		}
-		if (timestamp <= min_attack) {
-			min_attack = timestamp;
-		}
-
-		buffer[attack_counter] = timestamp;
-		attack_counter++;
-	} else {
-		if (timestamp > max_release) {
-			max_release = timestamp;
-		}
-		if (timestamp <= min_release) {
-			min_release = timestamp;
-		}
-		buffer[release_counter] = timestamp;
-		release_counter++;
+static void update_release(int64_t timestamp) {
+	if (timestamp > max_release) {
+		max_release = timestamp;
+	}
+	if (timestamp < min_release) {
+		min_release = timestamp;
+	}
+	release[release_counter] = (uint16_t)timestamp;
+	release_counter++;
+	if (release_counter >= 100) {
+		release_counter = 0;
 	}
 }
 

@@ -87,7 +87,9 @@ void audio_afe_destroy(void);
 
 uint8_t afe_get_volume(void);
 
-static void update_afe_values(int64_t timestamp, uint16_t *buffer);
+static void update_attack(int64_t timestamp);
+
+static void update_release(int64_t timestamp);
 
 afe_data_points_t get_afe_delays(void);
 
