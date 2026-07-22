@@ -36,7 +36,17 @@ extern "C" {
 #define MESH_CHANNEL_SCAN_DWELL_MS (MESH_HELLO_INTERVAL_MS + 300)
 #define MESH_CHANNEL_MAX           13
 #define MESH_CHANNEL_DEFAULT       1
-#define MESH_CHANNEL_SCAN_TIMEOUT_MS 60000
+
+/** Re-scan / hub-loss recovery. Once locked, a node checks every
+ *  MESH_CHANNEL_MONITOR_INTERVAL_MS whether it still hears the hub; if the hub
+ *  goes silent for MESH_HUB_LOST_TIMEOUT_MS (moved channel, rebooted, powered
+ *  off) it re-enters scanning. If a full sweep finds no hub, the node parks on
+ *  the default channel and waits an exponentially growing backoff (MIN..MAX,
+ *  doubling each failed sweep, reset on lock) before trying again. */
+#define MESH_HUB_LOST_TIMEOUT_MS         60000
+#define MESH_CHANNEL_MONITOR_INTERVAL_MS 5000
+#define MESH_RESCAN_BACKOFF_MIN_MS       5000
+#define MESH_RESCAN_BACKOFF_MAX_MS       300000
 
 /* -------------------------------------------------------------------------- */
 /*  Packet types                                                              */
@@ -310,19 +320,26 @@ void prune_task(void *arg);
 
 
 /** --------------------------------------------------------------------------
-* @brief Channel-scan task (NODE ONLY) — hop WiFi channels until we hear the
-*        hub (packet with src_id MESH_HUB_SRC_ID), then lock the radio to
-*        that channel. 
-*        If no hub is found within MESH_CHANNEL_SCAN_TIMEOUT_MS, lock to MESH_CHANNEL_DEFAULT so
-*        hub-less nodes still converge. Self-deletes once locked.
+* @brief Channel keeper task (NODE ONLY) — a persistent state machine that
+*        keeps the node's radio on the hub's WiFi channel.
 *
-*        Spawn only on nodes, after mesh_init().
-*        The hub's channel is fixed by the router it connects to.
+*        SCANNING: hop channels until we hear the hub (src_id MESH_HUB_SRC_ID),
+*                  then lock the radio to that channel.
+*        LOCKED:   stay put; every MESH_CHANNEL_MONITOR_INTERVAL_MS check that
+*                  the hub is still heard. If it goes silent for
+*                  MESH_HUB_LOST_TIMEOUT_MS, drop back to SCANNING.
+*        BACKOFF:  if a full sweep finds no hub, park on MESH_CHANNEL_DEFAULT
+*                  (so hub-less nodes still converge) and wait an exponentially
+*                  growing delay before sweeping again.
+*
+*        Runs forever (never self-deletes). Masking audio is unaffected by
+*        scanning — only mesh coordination pauses briefly. Spawn only on nodes,
+*        after mesh_init(); the hub's channel is fixed by its router.
 * -------------------------------------------------------------------------- */
 
 void mesh_channel_scan_task(void *arg);
 
-/** @brief True once the node has locked onto a channel (hub or fallback). */
+/** @brief True while the node is currently locked onto the hub's channel. */
 bool mesh_channel_is_locked(void);
 
 

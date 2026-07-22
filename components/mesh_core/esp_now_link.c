@@ -35,9 +35,13 @@ static mesh_status_callback_t s_status_callback;
 static volume_command_cb *s_volume_command_callback;
 static SemaphoreHandle_t s_mesh_mutex = NULL;
 
-/* Set once a node has heard the hub (or hit the scan fallback) and locked its
- * radio to that channel. Written from the Wi-Fi recv callback + scan task. */
+/* Channel-keeper state (node only). s_channel_locked = we are currently parked
+ * on the hub's channel; owned by the keeper task. s_last_hub_heard_ms = tick
+ * (ms) of the most recent packet from the hub (src_id 0), written from the
+ * Wi-Fi recv callback and read by the keeper to detect hub loss / find the
+ * hub's channel. Both are single 32-bit accesses, so volatile is enough. */
 static volatile bool s_channel_locked = false;
+static volatile uint32_t s_last_hub_heard_ms = 0;
 
 static void  ack_task(void *arg);
 
@@ -144,10 +148,11 @@ static void espnow_recv_cb(const esp_now_recv_info_t *recv_info,
     const mesh_header_t *hdr = (const mesh_header_t *)data;
     const uint8_t *src_mac = recv_info->src_addr;
 
-    /* Node channel scan: hearing the hub means the radio is on the right
-     * channel — lock it so the scan task stops hopping. Harmless on the hub. */
+    /* Node channel keeper: timestamp every packet from the hub. The keeper task
+     * uses this both to pick the hub's channel while scanning and to notice when
+     * the hub goes silent. Harmless on the hub itself. */
     if (hdr->src_id == MESH_HUB_SRC_ID) {
-        s_channel_locked = true;
+        s_last_hub_heard_ms = pdTICKS_TO_MS(xTaskGetTickCount());
     }
 
     /* Update neighbor table: record last-heard time for this MAC */
@@ -287,42 +292,71 @@ bool mesh_channel_is_locked(void) {
 /* Channels to try, hub-favourites first (2.4 GHz routers usually pick 1/6/11). */
 static const uint8_t k_scan_channels[] = {1, 6, 11, 2, 3, 4, 5, 7, 8, 9, 10, 12, 13};
 
-void mesh_channel_scan_task(void *arg) {
-    (void)arg;
-    ESP_LOGI(TAG, "Channel scan started — looking for hub (src_id %u)", MESH_HUB_SRC_ID);
-
-    uint32_t elapsed_ms = 0;
-    size_t idx = 0;
-
-    while (!s_channel_locked) {
-        uint8_t ch = k_scan_channels[idx];
+/* One full channel sweep. Returns true (and leaves the radio on that channel)
+ * if the hub was heard while parked on one of the channels; false otherwise. */
+static bool channel_scan_sweep(void) {
+    const size_t n = sizeof(k_scan_channels) / sizeof(k_scan_channels[0]);
+    for (size_t i = 0; i < n; i++) {
+        uint8_t ch = k_scan_channels[i];
         /* STA is not associated to an AP, so we're free to force the channel. */
         esp_err_t err = esp_wifi_set_channel(ch, WIFI_SECOND_CHAN_NONE);
         if (err != ESP_OK) {
             ESP_LOGW(TAG, "esp_wifi_set_channel(%u) failed: %s", ch, esp_err_to_name(err));
         }
+        uint32_t t_enter = pdTICKS_TO_MS(xTaskGetTickCount());
         ESP_LOGD(TAG, "Scanning for hub on channel %u", ch);
 
         vTaskDelay(pdMS_TO_TICKS(MESH_CHANNEL_SCAN_DWELL_MS));
-        /* s_channel_locked may have been set by the recv callback during dwell.
-         * Check before advancing so we stay on the channel where we heard it. */
-        if (s_channel_locked) break;
 
-        elapsed_ms += MESH_CHANNEL_SCAN_DWELL_MS;
-        if (elapsed_ms >= MESH_CHANNEL_SCAN_TIMEOUT_MS) {
-            ESP_LOGW(TAG, "No hub found in %u ms — locking to default channel %d",
-                     (unsigned)elapsed_ms, MESH_CHANNEL_DEFAULT);
-            esp_wifi_set_channel(MESH_CHANNEL_DEFAULT, WIFI_SECOND_CHAN_NONE);
-            s_channel_locked = true;
-            break;
+        /* Heard a hub packet at/after we tuned here? Then the hub is on this
+         * channel. Signed diff keeps this correct across tick wrap. */
+        if (s_last_hub_heard_ms != 0 &&
+            (int32_t)(s_last_hub_heard_ms - t_enter) >= 0) {
+            return true;
         }
-        idx = (idx + 1) % (sizeof(k_scan_channels) / sizeof(k_scan_channels[0]));
     }
+    return false;
+}
 
-    uint8_t locked_ch = 0; wifi_second_chan_t sec = WIFI_SECOND_CHAN_NONE;
-    esp_wifi_get_channel(&locked_ch, &sec);
-    ESP_LOGI(TAG, "Channel locked — mesh running on channel %u", locked_ch);
-    vTaskDelete(NULL);
+void mesh_channel_scan_task(void *arg) {
+    (void)arg;
+    ESP_LOGI(TAG, "Channel keeper started — hub src_id %u", MESH_HUB_SRC_ID);
+
+    uint32_t backoff_ms = MESH_RESCAN_BACKOFF_MIN_MS;
+
+    for (;;) {
+        /* ---- SCANNING ---- */
+        s_channel_locked = false;
+        if (channel_scan_sweep()) {
+            /* ---- LOCKED ---- */
+            uint8_t ch = 0; wifi_second_chan_t sec = WIFI_SECOND_CHAN_NONE;
+            esp_wifi_get_channel(&ch, &sec);
+            s_channel_locked = true;
+            backoff_ms = MESH_RESCAN_BACKOFF_MIN_MS;   /* reset on success */
+            ESP_LOGI(TAG, "Locked to hub on channel %u", ch);
+
+            /* Stay put; wake periodically to confirm the hub is still there. */
+            for (;;) {
+                vTaskDelay(pdMS_TO_TICKS(MESH_CHANNEL_MONITOR_INTERVAL_MS));
+                uint32_t now = pdTICKS_TO_MS(xTaskGetTickCount());
+                if ((int32_t)(now - s_last_hub_heard_ms) > MESH_HUB_LOST_TIMEOUT_MS) {
+                    ESP_LOGW(TAG, "Hub silent for >%d ms — re-scanning",
+                             MESH_HUB_LOST_TIMEOUT_MS);
+                    break;   /* back to SCANNING */
+                }
+            }
+        } else {
+            /* ---- BACKOFF ---- : a full sweep found no hub. Stay usable on the
+             * default channel so hub-less nodes converge */
+            ESP_LOGW(TAG, "No hub found — parking on channel %d, retry in %u ms",
+                     MESH_CHANNEL_DEFAULT, (unsigned)backoff_ms);
+            esp_wifi_set_channel(MESH_CHANNEL_DEFAULT, WIFI_SECOND_CHAN_NONE);
+            vTaskDelay(pdMS_TO_TICKS(backoff_ms));
+            backoff_ms = (backoff_ms >= MESH_RESCAN_BACKOFF_MAX_MS / 2)
+                             ? MESH_RESCAN_BACKOFF_MAX_MS
+                             : backoff_ms * 2;
+        }
+    }
 }
 
 void mesh_lock(void) {
