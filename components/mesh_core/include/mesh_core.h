@@ -25,6 +25,19 @@ extern "C" {
 /** Maximum payload size per ESP-NOW packet (ESP-NOW limit is 250 bytes). */
 #define MESH_PAYLOAD_MAX           250
 
+/** HELLO broadcast interval (ms). Also sets how fast a scanning node can
+ *  discover the hub's channel — a node must dwell at least this long on the
+ *  hub's channel to catch a HELLO, so keep it short enough for discovery. */
+#define MESH_HELLO_INTERVAL_MS     3000
+
+/** Node channel-scan: hub's src_id, dwell per channel, sweep range, and the
+ *  fallback channel used if no hub is found (so hub-less nodes still agree). */
+#define MESH_HUB_SRC_ID            0
+#define MESH_CHANNEL_SCAN_DWELL_MS (MESH_HELLO_INTERVAL_MS + 300)
+#define MESH_CHANNEL_MAX           13
+#define MESH_CHANNEL_DEFAULT       1
+#define MESH_CHANNEL_SCAN_TIMEOUT_MS 60000
+
 /* -------------------------------------------------------------------------- */
 /*  Packet types                                                              */
 /* -------------------------------------------------------------------------- */
@@ -295,6 +308,22 @@ void status_task(void *arg);
 
 void prune_task(void *arg);
 
+
+/** --------------------------------------------------------------------------
+* @brief Channel-scan task (NODE ONLY) — hop WiFi channels until we hear the
+*        hub (packet with src_id MESH_HUB_SRC_ID), then lock the radio to
+*        that channel. 
+*        If no hub is found within MESH_CHANNEL_SCAN_TIMEOUT_MS, lock to MESH_CHANNEL_DEFAULT so
+*        hub-less nodes still converge. Self-deletes once locked.
+*
+*        Spawn only on nodes, after mesh_init().
+*        The hub's channel is fixed by the router it connects to.
+* -------------------------------------------------------------------------- */
+
+void mesh_channel_scan_task(void *arg);
+
+/** @brief True once the node has locked onto a channel (hub or fallback). */
+bool mesh_channel_is_locked(void);
 
 
 #ifdef __cplusplus

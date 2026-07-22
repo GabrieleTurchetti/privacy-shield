@@ -204,19 +204,22 @@ void app_main(void) {
     /* ── Web Dashboard state ── */
     web_dashboard_init();
 
-    /* ── Mesh (ESP-NOW) — receives STATUS from nodes ── */
+    /* ── Mesh (ESP-NOW) — receives STATUS from nodes ──
+     * STA mode: the hub joins the home WiFi (below), and its ESP-NOW channel
+     * follows the router's channel. Nodes auto-scan to match. */
     ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
-    ESP_ERROR_CHECK(mesh_init(WIFI_MODE_AP, web_dashboard_update_status, NULL));
+    ESP_ERROR_CHECK(mesh_init(WIFI_MODE_STA, web_dashboard_update_status, NULL));
     xTaskCreate(hello_task, "hello", 4096, NULL, 1, NULL);
     xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
     ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ " MACSTR,
              MAC2STR(mesh_get_state()->my_mac));
 
-    /* ── WiFi AP + Web Dashboard (Tasks 4.1–4.3) ── */
-    ESP_LOGI(TAG, "  [..] Starting WiFi AP + Web Server...");
-    ESP_ERROR_CHECK(wifi_ap_init());
+    /* ── Join home WiFi + Web Dashboard ── */
+    ESP_LOGI(TAG, "  [..] Joining home WiFi + starting Web Server...");
+    wifi_sta_connect();  /* non-fatal: keeps retrying in the background */
     ESP_ERROR_CHECK(web_server_init());
-    ESP_LOGI(TAG, "  [OK] Web Dashboard ....... http://192.168.4.1");
+    dashboard_mdns_init();
+    ESP_LOGI(TAG, "  [OK] Web Dashboard ....... http://privacyshield.local");
 
     ESP_LOGI(TAG, "+------------------------------------------+");
     ESP_LOGI(TAG, "|          HUB READY                        |");
@@ -245,7 +248,10 @@ void app_main(void) {
 	commands->unlock = volume_unlock;
 	commands->set_volume_percentage = set_volume_percentage;
     ESP_ERROR_CHECK(mesh_init(WIFI_MODE_STA,NULL, commands));
-    
+
+    /* Find and lock onto the hub's WiFi channel (self-deletes once locked). */
+    xTaskCreate(mesh_channel_scan_task, "ch_scan", 3072, NULL, 2, NULL);
+
     xTaskCreate(hello_task, "hello", 4096, NULL, 1, NULL);
     xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
 

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 560" role="img">
+<title>STATUS → ACK &amp; Delivery Metrics</title>
+<defs><filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="#0f172a" flood-opacity="0.09"/></filter><marker id="ar_blue" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#2563EB"/></marker><marker id="ar_green" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#059669"/></marker><marker id="ar_violet" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#7C3AED"/></marker><marker id="ar_amber" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#B45309"/></marker><marker id="ar_slate" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#475569"/></marker><marker id="ar_teal" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#0D9488"/></marker></defs>
+<style>text{font-family:Inter,'Segoe UI',Helvetica,Arial,sans-serif}.tt{font-size:29px;font-weight:800;fill:#0F172A}.sub{font-size:14.5px;fill:#64748B}.h{font-size:16px;font-weight:700;fill:#0F172A}.s{font-size:12.5px;fill:#64748B}.lab{font-size:12px;font-weight:700}.num{font-size:19px;font-weight:800}.mono{font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;font-size:12px;fill:#0F172A}.monos{font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;font-size:11px;fill:#64748B}.tag{font-size:10.5px;font-weight:700}.ico{fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}</style>
+<rect x="0" y="0" width="1360" height="560" fill="#EEF2F7"/>
+<rect x="24" y="24" width="1312" height="512" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+<text x="56" y="74" class="tt">STATUS → ACK &amp; Delivery Metrics</text>
+<text x="56" y="100" class="sub">Each node reports health to the hub, which acknowledges. Unacknowledged STATUS packets lower the delivery ratio.</text>
+<g filter="url(#sh)"><rect x="90" y="160" width="240" height="150" rx="14" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="2"/></g>
+<g transform="translate(116,190)" stroke="#059669" class="ico"><rect x="0" y="4" width="26" height="26" rx="4"/><line x1="6" y1="0" x2="6" y2="4"/><line x1="13" y1="0" x2="13" y2="4"/><line x1="20" y1="0" x2="20" y2="4"/><line x1="6" y1="30" x2="6" y2="34"/><line x1="13" y1="30" x2="13" y2="34"/><line x1="20" y1="30" x2="20" y2="34"/><circle cx="13" cy="17" r="5"/></g>
+<text x="156" y="212" class="h" fill="#065F46">Masking Node</text>
+<text x="116" y="256" class="s">status_task sends periodically</text>
+<text x="116" y="278" class="monos">src_id = 1</text>
+<g filter="url(#sh)"><rect x="1030" y="160" width="240" height="150" rx="14" fill="#F5F3FF" stroke="#A78BFA" stroke-width="2"/></g>
+<g transform="translate(1058,192)" stroke="#7C3AED" class="ico"><path d="M0,20 a20,20 0 0 1 34,0"/><path d="M6,26 a12,12 0 0 1 22,0"/><circle cx="17" cy="33" r="2.6" fill="#7C3AED" stroke="none"/></g>
+<text x="1104" y="212" class="h" fill="#5B21B6">ESP32-S3 Hub</text>
+<text x="1058" y="262" class="s">refreshes web dashboard</text>
+<text x="1058" y="284" class="monos">src_id = 0</text>
+<path d="M330,214 L1030,214" fill="none" stroke="#059669" stroke-width="2.6" marker-end="url(#ar_green)"/>
+<text x="680" y="204" text-anchor="middle" class="lab" fill="#059669">STATUS</text>
+<rect x="440" y="224" width="480" height="26" rx="7" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="1.3"/>
+<text x="680" y="242" text-anchor="middle" class="mono" fill="#065F46">masking · volume · battery · delivery_ratio · loss_rate · uptime_s</text>
+<path d="M1030,286 L330,286" fill="none" stroke="#7C3AED" stroke-width="2.6" stroke-dasharray="8 6" marker-end="url(#ar_violet)"/>
+<text x="680" y="308" text-anchor="middle" class="lab" fill="#7C3AED">ACK</text>
+<rect x="500" y="292" width="360" height="24" rx="7" fill="#F5F3FF" stroke="#A78BFA" stroke-width="1.2"/>
+<text x="680" y="309" text-anchor="middle" class="mono" fill="#5B21B6">ack_timestamp_ms → matches the STATUS</text>
+<g filter="url(#sh)"><rect x="90" y="356" width="1180" height="150" rx="16" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="2"/></g>
+<text x="120" y="390" class="h">Link Health (rolling window · last 100 packets)</text>
+<text x="120" y="414" class="mono" font-weight="700" fill="#059669">delivery_ratio</text>
+<text x="640" y="414" text-anchor="end" class="mono" font-weight="700" fill="#0F172A">0.97</text>
+<rect x="120" y="422" width="520" height="16" rx="8" fill="#E2E8F0"/>
+<rect x="120" y="422" width="504" height="16" rx="8" fill="#059669"/>
+<text x="120" y="460" class="s">= ACKs received ÷ STATUS sent</text>
+<text x="720" y="414" class="mono" font-weight="700" fill="#B45309">packet_loss_rate</text>
+<text x="1240" y="414" text-anchor="end" class="mono" font-weight="700" fill="#0F172A">0.03</text>
+<rect x="720" y="422" width="520" height="16" rx="8" fill="#E2E8F0"/>
+<rect x="720" y="422" width="15" height="16" rx="8" fill="#B45309"/>
+<text x="720" y="460" class="s">= 1 − delivery_ratio (fraction with no ACK)</text>
+</svg>

@@ -134,7 +134,7 @@ void hello_task(void *arg) {
 	TickType_t last_wake = xTaskGetTickCount();
 	while (1) {
 		mesh_send_hello();
-		vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(10000));
+		vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(MESH_HELLO_INTERVAL_MS));
 	}
 }
 

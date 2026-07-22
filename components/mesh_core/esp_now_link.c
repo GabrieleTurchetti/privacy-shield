@@ -15,6 +15,7 @@
 #include "mesh_core.h"
 #include "freertos/queue.h"
 #include "delivery_ratio.h"
+#include "sdkconfig.h"
 
 static const char *TAG = LOG_TAG_MESH_CORE;
 
@@ -33,6 +34,10 @@ static uint8_t node_id = 0;
 static mesh_status_callback_t s_status_callback;
 static volume_command_cb *s_volume_command_callback;
 static SemaphoreHandle_t s_mesh_mutex = NULL;
+
+/* Set once a node has heard the hub (or hit the scan fallback) and locked its
+ * radio to that channel. Written from the Wi-Fi recv callback + scan task. */
+static volatile bool s_channel_locked = false;
 
 static void  ack_task(void *arg);
 
@@ -139,6 +144,12 @@ static void espnow_recv_cb(const esp_now_recv_info_t *recv_info,
     const mesh_header_t *hdr = (const mesh_header_t *)data;
     const uint8_t *src_mac = recv_info->src_addr;
 
+    /* Node channel scan: hearing the hub means the radio is on the right
+     * channel — lock it so the scan task stops hopping. Harmless on the hub. */
+    if (hdr->src_id == MESH_HUB_SRC_ID) {
+        s_channel_locked = true;
+    }
+
     /* Update neighbor table: record last-heard time for this MAC */
     mesh_discovery_heard(src_mac, hdr->src_id);
 
@@ -228,6 +239,11 @@ esp_err_t mesh_init(wifi_mode_t wifi_mode, mesh_status_callback_t status_cb, vol
     /* Fill in our state */
     // This way each node get its own id automatically
     node_id = get_node_id();
+#ifdef CONFIG_PRIVACY_SHIELD_ROLE_HUB
+    /* The hub is always node 0 (see mesh_header src_id convention). Nodes use
+     * this to recognize the hub while channel-scanning. */
+    node_id = MESH_HUB_SRC_ID;
+#endif
     s_mesh.my_id = node_id;
     s_mesh.initialized = true;
 
@@ -262,6 +278,51 @@ uint8_t get_node_id(void) {
     uint32_t h = 2166136261u;                 
     for (int i = 0; i < 6; i++) { h ^= mac[i]; h *= 16777619u; }
     return (uint8_t)(h % 254) + 1;            
+}
+
+bool mesh_channel_is_locked(void) {
+    return s_channel_locked;
+}
+
+/* Channels to try, hub-favourites first (2.4 GHz routers usually pick 1/6/11). */
+static const uint8_t k_scan_channels[] = {1, 6, 11, 2, 3, 4, 5, 7, 8, 9, 10, 12, 13};
+
+void mesh_channel_scan_task(void *arg) {
+    (void)arg;
+    ESP_LOGI(TAG, "Channel scan started — looking for hub (src_id %u)", MESH_HUB_SRC_ID);
+
+    uint32_t elapsed_ms = 0;
+    size_t idx = 0;
+
+    while (!s_channel_locked) {
+        uint8_t ch = k_scan_channels[idx];
+        /* STA is not associated to an AP, so we're free to force the channel. */
+        esp_err_t err = esp_wifi_set_channel(ch, WIFI_SECOND_CHAN_NONE);
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "esp_wifi_set_channel(%u) failed: %s", ch, esp_err_to_name(err));
+        }
+        ESP_LOGD(TAG, "Scanning for hub on channel %u", ch);
+
+        vTaskDelay(pdMS_TO_TICKS(MESH_CHANNEL_SCAN_DWELL_MS));
+        /* s_channel_locked may have been set by the recv callback during dwell.
+         * Check before advancing so we stay on the channel where we heard it. */
+        if (s_channel_locked) break;
+
+        elapsed_ms += MESH_CHANNEL_SCAN_DWELL_MS;
+        if (elapsed_ms >= MESH_CHANNEL_SCAN_TIMEOUT_MS) {
+            ESP_LOGW(TAG, "No hub found in %u ms — locking to default channel %d",
+                     (unsigned)elapsed_ms, MESH_CHANNEL_DEFAULT);
+            esp_wifi_set_channel(MESH_CHANNEL_DEFAULT, WIFI_SECOND_CHAN_NONE);
+            s_channel_locked = true;
+            break;
+        }
+        idx = (idx + 1) % (sizeof(k_scan_channels) / sizeof(k_scan_channels[0]));
+    }
+
+    uint8_t locked_ch = 0; wifi_second_chan_t sec = WIFI_SECOND_CHAN_NONE;
+    esp_wifi_get_channel(&locked_ch, &sec);
+    ESP_LOGI(TAG, "Channel locked — mesh running on channel %u", locked_ch);
+    vTaskDelete(NULL);
 }
 
 void mesh_lock(void) {
