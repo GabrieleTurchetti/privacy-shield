@@ -344,8 +344,7 @@ void audio_afe_fetch(void *pvParameters) {
 	bool attack_active = false;
 	uint8_t attack_target_pct = 0, release_target_pct = 0;
 
-	uint8_t VOLUME_TOLERANCE_PCT = 2, MIN_VOLUME_PCT = 2;
-	uint8_t prev_vol_target = 0;
+	uint8_t VOLUME_TOLERANCE_PCT = 2;
 	uint8_t volume_pct = 0;
 
 	audio_packet_t *packet;
