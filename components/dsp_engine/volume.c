@@ -152,6 +152,7 @@ void volume_unlock() {
     VOLUME_LOCK();
     is_volume_override = false;
     is_masking_override = false;
+    volume_percentage = 100;   /* reset master gain to full, back to adaptive */
     VOLUME_UNLOCK();
 }
 
