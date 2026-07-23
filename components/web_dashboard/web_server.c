@@ -108,7 +108,8 @@ esp_err_t web_server_init(void) {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.max_uri_handlers = 16;
     config.lru_purge_enable = true;
-    config.stack_size = 10240;  /* Default 4096 overflows — dashboard HTML is ~4.5KB */
+    config.stack_size = 10240;  /* Default 4096 too small for the /api/nodes 3KB stack buffer.
+                                   (The dashboard HTML is served from flash, so its size is irrelevant here.) */
     config.uri_match_fn = httpd_uri_match_wildcard;
 
 
