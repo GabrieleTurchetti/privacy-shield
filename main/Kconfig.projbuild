@@ -20,6 +20,25 @@ menu "Privacy Shield Configuration"
     endchoice
 
     # =================================================================
+    #  Hub WiFi (station mode)
+    # =================================================================
+    #  The Hub joins your existing home WiFi as a station so the
+    #  dashboard is reachable on your LAN (http://privacyshield.local)
+    #  without your phone losing internet. Only used in Hub role.
+    config PRIVACY_SHIELD_WIFI_SSID
+        string "Home WiFi SSID (Hub only)"
+        default "iPhone di Donaldo"
+        help
+            SSID of the network the Hub connects to. Ignored by Nodes.
+
+    config PRIVACY_SHIELD_WIFI_PASSWORD
+        string "Home WiFi password (Hub only)"
+        default "privacyshield123"
+        help
+            Password for the above network. Leave empty for an open network
+            (and change the auth threshold in wifi_sta_connect()).
+
+    # =================================================================
     #  Build Mode
     # =================================================================
     choice PRIVACY_SHIELD_BUILD_MODE

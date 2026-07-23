@@ -18,6 +18,7 @@
 #include "sdkconfig.h"
 #include "volume.h"
 #include "web_dashboard.h"
+#include <math.h>
 #include <stdio.h>
 
 static const char *TAG = LOG_TAG_MAIN;
@@ -154,11 +155,6 @@ void update_system_metrics(void) {
             cpu1_utilization = 100 - (idle1_pct > 100 ? 100 : idle1_pct);
         }
 
-			// Utilization is the inverse of the idle percentage
-			cpu0_utilization = 100 - (idle0_pct > 100 ? 100 : idle0_pct);
-			cpu1_utilization = 100 - (idle1_pct > 100 ? 100 : idle1_pct);
-		}
-
 		prev_total_run_time = ulTotalRunTime;
 		prev_idle0_time = idle0_time;
 		prev_idle1_time = idle1_time;
@@ -173,6 +169,27 @@ uint32_t get_heap_free(void) {
 }
 uint32_t get_heap_largest_block(void) {
 	return heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+}
+
+/* Collect the delay KPIs (end-to-end / attack / release) into the mesh
+ * transport struct. Guards the empty-buffer cases (avg → NaN, and the
+ * min=9999 / max=0 sentinels) so nothing invalid reaches the dashboard JSON. */
+static void fill_delay_metrics(delay_metrics_t *out) {
+	double e_avg = get_avg_delay();
+	out->e2e_avg = isfinite(e_avg) ? (float)e_avg : 0.0f;
+	out->e2e_min = (float)get_min_delay();
+	out->e2e_max = (float)get_max_delay();
+	if (out->e2e_min > out->e2e_max) { out->e2e_min = 0.0f; out->e2e_max = 0.0f; }
+
+	afe_data_points_t d = get_afe_delays();
+	out->attack_avg  = isfinite(d.avg_attack)  ? (float)d.avg_attack  : 0.0f;
+	out->release_avg = isfinite(d.avg_release) ? (float)d.avg_release : 0.0f;
+	out->attack_min  = d.min_attack;
+	out->attack_max  = d.max_attack;
+	out->release_min = d.min_release;
+	out->release_max = d.max_release;
+	if (out->attack_min  > out->attack_max)  { out->attack_min  = 0; out->attack_max  = 0; }
+	if (out->release_min > out->release_max) { out->release_min = 0; out->release_max = 0; }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -216,19 +233,22 @@ void app_main(void) {
 	/* ── Web Dashboard state ── */
 	web_dashboard_init();
 
-	/* ── Mesh (ESP-NOW) — receives STATUS from nodes ── */
-	ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
-	ESP_ERROR_CHECK(mesh_init(WIFI_MODE_AP, web_dashboard_update_status, NULL));
-	xTaskCreate(hello_task, "hello", 4096, NULL, 1, NULL);
-	xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
-	ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ " MACSTR,
-			 MAC2STR(mesh_get_state()->my_mac));
+    /* ── Mesh (ESP-NOW) — receives STATUS from nodes ──
+     * STA mode: the hub joins the home WiFi (below), and its ESP-NOW channel
+     * follows the router's channel. Nodes auto-scan to match. */
+    ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
+    ESP_ERROR_CHECK(mesh_init(WIFI_MODE_STA, web_dashboard_update_status, NULL));
+    xTaskCreate(hello_task, "hello", 4096, NULL, 1, NULL);
+    xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
+    ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ " MACSTR,
+             MAC2STR(mesh_get_state()->my_mac));
 
-	/* ── WiFi AP + Web Dashboard (Tasks 4.1–4.3) ── */
-	ESP_LOGI(TAG, "  [..] Starting WiFi AP + Web Server...");
-	ESP_ERROR_CHECK(wifi_ap_init());
-	ESP_ERROR_CHECK(web_server_init());
-	ESP_LOGI(TAG, "  [OK] Web Dashboard ....... http://192.168.4.1");
+    /* ── Join home WiFi + Web Dashboard ── */
+    ESP_LOGI(TAG, "  [..] Joining home WiFi + starting Web Server...");
+    wifi_sta_connect();  /* non-fatal: keeps retrying in the background */
+    ESP_ERROR_CHECK(web_server_init());
+    dashboard_mdns_init();
+    ESP_LOGI(TAG, "  [OK] Web Dashboard ....... http://privacyshield.local");
 
 	ESP_LOGI(TAG, "+------------------------------------------+");
 	ESP_LOGI(TAG, "|          HUB READY                        |");
@@ -256,10 +276,13 @@ void app_main(void) {
 	commands->set_masking = mask_set_command;
 	commands->unlock = volume_unlock;
 	commands->set_volume_percentage = set_volume_percentage;
-	ESP_ERROR_CHECK(mesh_init(WIFI_MODE_STA, NULL, commands));
+    ESP_ERROR_CHECK(mesh_init(WIFI_MODE_STA,NULL, commands));
 
-	xTaskCreate(hello_task, "hello", 4096, NULL, 1, NULL);
-	xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
+    /* Find and lock onto the hub's WiFi channel (self-deletes once locked). */
+    xTaskCreate(mesh_channel_scan_task, "ch_scan", 3072, NULL, 2, NULL);
+
+    xTaskCreate(hello_task, "hello", 4096, NULL, 1, NULL);
+    xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
 
 	status_task_params_t *params = malloc(sizeof(*params));
 	if (params == NULL) {
@@ -276,6 +299,7 @@ void app_main(void) {
     params->get_cpu1_utilization              = get_cpu1_utilization;
     params->get_heap_free         = get_heap_free;
     params->get_heap_largest_block    = get_heap_largest_block;
+	params->get_delays                = fill_delay_metrics;
 	xTaskCreate(status_task, "status", 4096, params, 1, NULL);
 	ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ node %u, " MACSTR, node_id,
 			 MAC2STR(mesh_get_state()->my_mac));

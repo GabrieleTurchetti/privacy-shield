@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2560 650" role="img">
+<title>ESP-SR AFE Audio Pipeline</title>
+<defs><filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="#0f172a" flood-opacity="0.09"/></filter><marker id="ar" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#94A3B8"/></marker><marker id="arp" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#DB2777"/></marker></defs>
+<style>text{font-family:Inter,'Segoe UI',Helvetica,Arial,sans-serif}.tt{font-size:30px;font-weight:800;fill:#0F172A}.sub{font-size:15px;fill:#64748B}.st{font-size:16px;font-weight:800}.ss{font-size:10.5px;font-weight:700;fill:#64748B}.p{font-size:11.5px;fill:#334155}.badge{font-size:14px;font-weight:800;fill:#fff}.mono{font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;font-size:10px;fill:#0F172A}.lbl{font-size:10px;font-weight:800}.note{font-size:10.5px;fill:#475569}.chip{font-size:10px;font-weight:700}</style>
+<rect x="0" y="0" width="2560" height="650" fill="#EEF2F7"/>
+<rect x="24" y="24" width="2512" height="602" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+<text x="56" y="74" class="tt">Audio Pipeline — ESP-SR AFE (feed → AEC · NS · VAD → fetch → mask)</text>
+<text x="56" y="100" class="sub">Per-frame path in afe.c / volume.c · reference R is the device's own masking pink noise, fed back so AEC can cancel it</text>
+<rect x="968" y="140" width="936" height="380" rx="18" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.4" stroke-dasharray="8 6"/>
+<text x="1436" y="132" text-anchor="middle" class="ss" fill="#64748B">inside ESP-SR AFE — one feed → fetch call</text>
+<line x1="338" y1="335.0" x2="349" y2="335.0" stroke="#94A3B8" stroke-width="2.2" marker-end="url(#ar)"/>
+<line x1="650" y1="335.0" x2="661" y2="335.0" stroke="#94A3B8" stroke-width="2.2" marker-end="url(#ar)"/>
+<line x1="962" y1="335.0" x2="973" y2="335.0" stroke="#94A3B8" stroke-width="2.2" marker-end="url(#ar)"/>
+<line x1="1274" y1="335.0" x2="1285" y2="335.0" stroke="#94A3B8" stroke-width="2.2" marker-end="url(#ar)"/>
+<line x1="1586" y1="335.0" x2="1597" y2="335.0" stroke="#94A3B8" stroke-width="2.2" marker-end="url(#ar)"/>
+<line x1="1898" y1="335.0" x2="1909" y2="335.0" stroke="#94A3B8" stroke-width="2.2" marker-end="url(#ar)"/>
+<line x1="2210" y1="335.0" x2="2221" y2="335.0" stroke="#94A3B8" stroke-width="2.2" marker-end="url(#ar)"/>
+<g filter="url(#sh)"><rect x="40" y="170" width="296" height="330" rx="14" fill="#FFFFFF" stroke="#93C5FD" stroke-width="1.8"/></g>
+<path d="M54,170 h268 a14,14 0 0 1 14,14 v34 h-296 v-34 a14,14 0 0 1 14,-14 z" fill="#EFF6FF"/>
+<circle cx="66" cy="196" r="13" fill="#2563EB"/><text x="66" y="201" text-anchor="middle" class="badge">1</text>
+<text x="88" y="195" class="st" fill="#2563EB">Source Inputs</text>
+<text x="56" y="242" class="p">Near-end mic plus the far-end</text>
+<text x="56" y="258" class="p">reference the AEC needs.</text>
+<rect x="56" y="280" width="264" height="76" rx="7" fill="#EFF6FF" stroke="#93C5FD" stroke-width="1"/>
+<text x="66" y="296" class="lbl" fill="#2563EB">M — near-end</text>
+<text x="66" y="304" class="mono" fill="#2563EB">from audio_input_queue</text>
+<text x="66" y="318" class="mono" fill="#2563EB">microphone_buffer</text>
+<text x="66" y="332" class="mono" fill="#2563EB">int16 PCM · 1 ch</text>
+<rect x="56" y="364" width="264" height="76" rx="7" fill="#EFF6FF" stroke="#93C5FD" stroke-width="1"/>
+<text x="66" y="380" class="lbl" fill="#2563EB">R — far-end</text>
+<text x="66" y="388" class="mono" fill="#2563EB">speaker_buffer =</text>
+<text x="66" y="402" class="mono" fill="#2563EB">the masking pink noise</text>
+<text x="66" y="416" class="mono" fill="#2563EB">the transducer plays</text>
+<text x="56" y="448" class="note">R = what the mic will hear</text>
+<text x="56" y="463" class="note">from our own speaker.</text>
+<g filter="url(#sh)"><rect x="352" y="170" width="296" height="330" rx="14" fill="#FFFFFF" stroke="#C7D2FE" stroke-width="1.8"/></g>
+<path d="M366,170 h268 a14,14 0 0 1 14,14 v34 h-296 v-34 a14,14 0 0 1 14,-14 z" fill="#EEF2FF"/>
+<circle cx="378" cy="196" r="13" fill="#4F46E5"/><text x="378" y="201" text-anchor="middle" class="badge">2</text>
+<text x="400" y="195" class="st" fill="#4F46E5">Interleave</text>
+<text x="400" y="212" class="ss" fill="#4F46E5">build feed_buffer</text>
+<text x="368" y="242" class="p">Weave M and R sample by</text>
+<text x="368" y="258" class="p">sample:  M, R, M, R, …</text>
+<rect x="368" y="280" width="264" height="60" rx="7" fill="#EEF2FF" stroke="#C7D2FE" stroke-width="1"/>
+<text x="378" y="300" class="mono" fill="#4F46E5">for i in 0..chunksize-1:</text>
+<text x="378" y="314" class="mono" fill="#4F46E5">  feed[2i]   = mic[i]</text>
+<text x="378" y="328" class="mono" fill="#4F46E5">  feed[2i+1] = ref[i]</text>
+<rect x="368" y="336" width="34" height="22" rx="4" fill="#2563EB"/>
+<text x="385" y="351" text-anchor="middle" class="chip" fill="#fff">M0</text>
+<rect x="406" y="336" width="34" height="22" rx="4" fill="#DB2777"/>
+<text x="423" y="351" text-anchor="middle" class="chip" fill="#fff">R0</text>
+<rect x="444" y="336" width="34" height="22" rx="4" fill="#2563EB"/>
+<text x="461" y="351" text-anchor="middle" class="chip" fill="#fff">M1</text>
+<rect x="482" y="336" width="34" height="22" rx="4" fill="#DB2777"/>
+<text x="499" y="351" text-anchor="middle" class="chip" fill="#fff">R1</text>
+<rect x="520" y="336" width="34" height="22" rx="4" fill="#2563EB"/>
+<text x="537" y="351" text-anchor="middle" class="chip" fill="#fff">M2</text>
+<rect x="558" y="336" width="34" height="22" rx="4" fill="#DB2777"/>
+<text x="575" y="351" text-anchor="middle" class="chip" fill="#fff">R2</text>
+<text x="368" y="376" class="note">Result: int16 · 2 ch (MR)</text>
+<text x="368" y="391" class="note">length = chunksize × 2</text>
+<g filter="url(#sh)"><rect x="664" y="170" width="296" height="330" rx="14" fill="#FFFFFF" stroke="#C4B5FD" stroke-width="1.8"/></g>
+<path d="M678,170 h268 a14,14 0 0 1 14,14 v34 h-296 v-34 a14,14 0 0 1 14,-14 z" fill="#F5F3FF"/>
+<circle cx="690" cy="196" r="13" fill="#7C3AED"/><text x="690" y="201" text-anchor="middle" class="badge">3</text>
+<text x="712" y="195" class="st" fill="#7C3AED">AFE Feed</text>
+<text x="680" y="242" class="p">Push the interleaved frame</text>
+<text x="680" y="258" class="p">into the ESP-SR AFE.</text>
+<rect x="680" y="280" width="264" height="46" rx="7" fill="#F5F3FF" stroke="#C4B5FD" stroke-width="1"/>
+<text x="690" y="300" class="mono" fill="#7C3AED">afe_handle->feed(</text>
+<text x="690" y="314" class="mono" fill="#7C3AED">   afe_data, feed_buffer)</text>
+<text x="680" y="334" class="note">input_format = "MR"</text>
+<text x="680" y="349" class="note">AFE_TYPE_SR</text>
+<text x="680" y="364" class="note">AFE_MODE_HIGH_PERF</text>
+<text x="680" y="384" class="note">One feed per mic frame</text>
+<text x="680" y="399" class="note">from the input queue.</text>
+<g filter="url(#sh)"><rect x="976" y="170" width="296" height="330" rx="14" fill="#FFFFFF" stroke="#FCD34D" stroke-width="1.8"/></g>
+<path d="M990,170 h268 a14,14 0 0 1 14,14 v34 h-296 v-34 a14,14 0 0 1 14,-14 z" fill="#FFFBEB"/>
+<circle cx="1002" cy="196" r="13" fill="#D97706"/><text x="1002" y="201" text-anchor="middle" class="badge">4</text>
+<text x="1024" y="195" class="st" fill="#D97706">AEC</text>
+<text x="1024" y="212" class="ss" fill="#D97706">Acoustic Echo Cancellation</text>
+<text x="992" y="242" class="p">Uses R to estimate the echo</text>
+<text x="992" y="258" class="p">present in M and subtracts it.</text>
+<rect x="992" y="280" width="264" height="46" rx="7" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1"/>
+<text x="1002" y="300" class="mono" fill="#D97706">aec_init = ('R' in</text>
+<text x="1002" y="314" class="mono" fill="#D97706">           input_format)</text>
+<rect x="992" y="334" width="264" height="61" rx="7" fill="#FFFFFF" stroke="#FCD34D" stroke-width="1.2"/>
+<text x="1002" y="354" class="note" fill="#334155">Goal: remove our own</text>
+<text x="1002" y="369" class="note" fill="#334155">masking noise from the mic</text>
+<text x="1002" y="384" class="note" fill="#334155">so VAD sees real speech.</text>
+<text x="992" y="405" class="p" font-weight="700" fill="#D97706">→ echo-reduced signal</text>
+<g filter="url(#sh)"><rect x="1288" y="170" width="296" height="330" rx="14" fill="#FFFFFF" stroke="#5EEAD4" stroke-width="1.8"/></g>
+<path d="M1302,170 h268 a14,14 0 0 1 14,14 v34 h-296 v-34 a14,14 0 0 1 14,-14 z" fill="#ECFEFF"/>
+<circle cx="1314" cy="196" r="13" fill="#0D9488"/><text x="1314" y="201" text-anchor="middle" class="badge">5</text>
+<text x="1336" y="195" class="st" fill="#0D9488">NS + VAD</text>
+<text x="1304" y="242" class="p">Noise Suppression cleans</text>
+<text x="1304" y="258" class="p">residual background noise.</text>
+<rect x="1304" y="280" width="264" height="32" rx="7" fill="#ECFEFF" stroke="#5EEAD4" stroke-width="1"/>
+<text x="1314" y="300" class="mono" fill="#0D9488">ns_init = true</text>
+<text x="1304" y="320" class="p">VAD tags each frame as</text>
+<text x="1304" y="336" class="p">Speech or Silence.</text>
+<rect x="1304" y="358" width="264" height="74" rx="7" fill="#ECFEFF" stroke="#5EEAD4" stroke-width="1"/>
+<text x="1314" y="378" class="mono" fill="#0D9488">vad_mode = VAD_MODE_1</text>
+<text x="1314" y="392" class="mono" fill="#0D9488">min_noise  = 500 ms</text>
+<text x="1314" y="406" class="mono" fill="#0D9488">min_speech = 200 ms</text>
+<text x="1314" y="420" class="mono" fill="#0D9488">delay      = 128 ms</text>
+<rect x="1304" y="429" width="61" height="20" rx="10" fill="#ECFEFF" stroke="#5EEAD4" stroke-width="1"/>
+<text x="1335" y="443" text-anchor="middle" class="chip" fill="#0D9488">SPEECH</text>
+<rect x="1372.2" y="429" width="68" height="20" rx="10" fill="#ECFEFF" stroke="#5EEAD4" stroke-width="1"/>
+<text x="1406" y="443" text-anchor="middle" class="chip" fill="#0D9488">SILENCE</text>
+<rect x="1447.6000000000001" y="429" width="68" height="20" rx="10" fill="#ECFEFF" stroke="#5EEAD4" stroke-width="1"/>
+<text x="1482" y="443" text-anchor="middle" class="chip" fill="#0D9488">UNKNOWN</text>
+<g filter="url(#sh)"><rect x="1600" y="170" width="296" height="330" rx="14" fill="#FFFFFF" stroke="#93C5FD" stroke-width="1.8"/></g>
+<path d="M1614,170 h268 a14,14 0 0 1 14,14 v34 h-296 v-34 a14,14 0 0 1 14,-14 z" fill="#EFF6FF"/>
+<circle cx="1626" cy="196" r="13" fill="#2563EB"/><text x="1626" y="201" text-anchor="middle" class="badge">6</text>
+<text x="1648" y="195" class="st" fill="#2563EB">AFE Fetch</text>
+<text x="1648" y="212" class="ss" fill="#2563EB">output</text>
+<text x="1616" y="242" class="p">Pull the processed frame</text>
+<text x="1616" y="258" class="p">and its VAD state.</text>
+<rect x="1616" y="280" width="264" height="88" rx="7" fill="#EFF6FF" stroke="#93C5FD" stroke-width="1"/>
+<text x="1626" y="300" class="mono" fill="#2563EB">result =</text>
+<text x="1626" y="314" class="mono" fill="#2563EB">  afe_handle->fetch(afe_data)</text>
+<text x="1626" y="328" class="mono" fill="#2563EB">result->data (int16,1ch)</text>
+<text x="1626" y="342" class="mono" fill="#2563EB">result->vad_state</text>
+<text x="1626" y="356" class="mono" fill="#2563EB">result->ret_value</text>
+<text x="1616" y="376" class="note">echo-cancelled +</text>
+<text x="1616" y="391" class="note">noise-suppressed +</text>
+<text x="1616" y="406" class="note">VAD state updated</text>
+<g filter="url(#sh)"><rect x="1912" y="170" width="296" height="330" rx="14" fill="#FFFFFF" stroke="#F9A8D4" stroke-width="1.8"/></g>
+<path d="M1926,170 h268 a14,14 0 0 1 14,14 v34 h-296 v-34 a14,14 0 0 1 14,-14 z" fill="#FDF2F8"/>
+<circle cx="1938" cy="196" r="13" fill="#DB2777"/><text x="1938" y="201" text-anchor="middle" class="badge">7</text>
+<text x="1960" y="195" class="st" fill="#DB2777">Volume &amp; Masking</text>
+<text x="1960" y="212" class="ss" fill="#DB2777">Application</text>
+<text x="1928" y="242" class="p">Generate pink noise, scale it</text>
+<text x="1928" y="258" class="p">by speech energy — only</text>
+<text x="1928" y="274" class="p">while actually speaking.</text>
+<rect x="1928" y="296" width="264" height="60" rx="7" fill="#FDF2F8" stroke="#F9A8D4" stroke-width="1"/>
+<text x="1938" y="316" class="mono" fill="#DB2777">noise_gen_fill(spk, PINK)</text>
+<text x="1938" y="330" class="mono" fill="#DB2777">vol = volume_process_frame(</text>
+<text x="1938" y="344" class="mono" fill="#DB2777">  mic, noise, n, &amp;mask, sp)</text>
+<rect x="1928" y="364" width="264" height="76" rx="7" fill="#FFFFFF" stroke="#F9A8D4" stroke-width="1.2"/>
+<text x="1938" y="384" class="note" fill="#334155">silence → target 0 (no mask)</text>
+<text x="1938" y="399" class="note" fill="#334155">speech → RMS → volume</text>
+<text x="1938" y="414" class="note" fill="#334155">attack 10 ms · release 100 ms</text>
+<text x="1938" y="429" class="note" fill="#334155">masking = level > 5 %</text>
+<g filter="url(#sh)"><rect x="2224" y="170" width="296" height="330" rx="14" fill="#FFFFFF" stroke="#FCD34D" stroke-width="1.8"/></g>
+<path d="M2238,170 h268 a14,14 0 0 1 14,14 v34 h-296 v-34 a14,14 0 0 1 14,-14 z" fill="#FFFBEB"/>
+<circle cx="2250" cy="196" r="13" fill="#B45309"/><text x="2250" y="201" text-anchor="middle" class="badge">8</text>
+<text x="2272" y="195" class="st" fill="#B45309">Output Queue</text>
+<text x="2240" y="242" class="p">Enqueue the masked pink</text>
+<text x="2240" y="258" class="p">noise for playback.</text>
+<rect x="2240" y="280" width="264" height="46" rx="7" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1"/>
+<text x="2250" y="300" class="mono" fill="#B45309">xQueueSend(</text>
+<text x="2250" y="314" class="mono" fill="#B45309">  audio_output_queue, spk)</text>
+<text x="2240" y="334" class="note">int16 · 1 ch · chunksize</text>
+<text x="2240" y="349" class="note">FreeRTOS queue → transducer</text>
+<rect x="2240" y="369" width="264" height="46" rx="7" fill="#FDF2F8" stroke="#F9A8D4" stroke-width="1.4"/>
+<text x="2250" y="389" class="note" fill="#9D174D">This buffer becomes the</text>
+<text x="2250" y="404" class="note" fill="#9D174D">next frame's R (AEC ref).</text>
+<path d="M2372.0,500 L2372.0,570 L188.0,570 L188.0,500" fill="none" stroke="#DB2777" stroke-width="2.4" stroke-dasharray="9 6" marker-end="url(#arp)"/>
+<rect x="1020.0" y="555" width="520" height="30" rx="15" fill="#FDF2F8" stroke="#F9A8D4" stroke-width="1.4"/>
+<text x="1280" y="575" text-anchor="middle" class="note" fill="#9D174D" font-weight="700">Output masking noise is played on the transducer AND becomes the next frame's AEC reference (R)</text>
+</svg>

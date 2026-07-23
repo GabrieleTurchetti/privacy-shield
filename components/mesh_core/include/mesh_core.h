@@ -25,6 +25,29 @@ extern "C" {
 /** Maximum payload size per ESP-NOW packet (ESP-NOW limit is 250 bytes). */
 #define MESH_PAYLOAD_MAX           250
 
+/** HELLO broadcast interval (ms). Also sets how fast a scanning node can
+ *  discover the hub's channel — a node must dwell at least this long on the
+ *  hub's channel to catch a HELLO, so keep it short enough for discovery. */
+#define MESH_HELLO_INTERVAL_MS     3000
+
+/** Node channel-scan: hub's src_id, dwell per channel, sweep range, and the
+ *  fallback channel used if no hub is found (so hub-less nodes still agree). */
+#define MESH_HUB_SRC_ID            0
+#define MESH_CHANNEL_SCAN_DWELL_MS (MESH_HELLO_INTERVAL_MS + 300)
+#define MESH_CHANNEL_MAX           13
+#define MESH_CHANNEL_DEFAULT       1
+
+/** Re-scan / hub-loss recovery. Once locked, a node checks every
+ *  MESH_CHANNEL_MONITOR_INTERVAL_MS whether it still hears the hub; if the hub
+ *  goes silent for MESH_HUB_LOST_TIMEOUT_MS (moved channel, rebooted, powered
+ *  off) it re-enters scanning. If a full sweep finds no hub, the node parks on
+ *  the default channel and waits an exponentially growing backoff (MIN..MAX,
+ *  doubling each failed sweep, reset on lock) before trying again. */
+#define MESH_HUB_LOST_TIMEOUT_MS         60000
+#define MESH_CHANNEL_MONITOR_INTERVAL_MS 5000
+#define MESH_RESCAN_BACKOFF_MIN_MS       5000
+#define MESH_RESCAN_BACKOFF_MAX_MS       300000
+
 /* -------------------------------------------------------------------------- */
 /*  Packet types                                                              */
 /* -------------------------------------------------------------------------- */
@@ -56,6 +79,17 @@ typedef struct __attribute__((packed)) {
 } mesh_hello_pkt_t;
 
 /* -------------------------------------------------------------------------- */
+/*  Delay metrics (end-to-end / attack / release), min / max / avg            */
+/*  Plain transport struct — the node fills it via status_task_params.        */
+/* -------------------------------------------------------------------------- */
+
+typedef struct {
+    float   e2e_avg,   e2e_min,   e2e_max;      /* mic→speaker delay (ms) */
+    float   attack_avg; int16_t attack_min, attack_max;  /* masking attack delay */
+    float   release_avg; int16_t release_min, release_max; /* masking release delay */
+} delay_metrics_t;
+
+/* -------------------------------------------------------------------------- */
 /*  STATUS packet (node reports to hub / neighbors)                           */
 /* -------------------------------------------------------------------------- */
 
@@ -71,6 +105,10 @@ typedef struct __attribute__((packed)) {
     uint8_t  cpu1_utilization; /* CPU1 utilization percentage (0-100) */
     uint32_t heap_free;        /* Free heap size in bytes */
     uint32_t heap_largest_block; /* Largest free heap block in bytes */
+    /* Delay KPIs (ms). avg = rolling mean, min/max = running extremes. */
+    float e2e_avg,   e2e_min,   e2e_max;
+    float attack_avg;  int16_t attack_min,  attack_max;
+    float release_avg; int16_t release_min, release_max;
 } mesh_status_pkt_t;
 
 //Used to pass web dashboard refresh method
@@ -284,6 +322,7 @@ typedef struct {
     uint8_t (*get_cpu1_utilization)(void); //get CPU1 utilization
     uint32_t (*get_heap_free)(void); //get free heap size
     uint32_t (*get_heap_largest_block)(void); //get largest free heap block
+    void (*get_delays)(delay_metrics_t *out); //fill e2e/attack/release min/max/avg
 } status_task_params_t;
 
 void status_task(void *arg);
@@ -295,6 +334,29 @@ void status_task(void *arg);
 
 void prune_task(void *arg);
 
+
+/** --------------------------------------------------------------------------
+* @brief Channel keeper task (NODE ONLY) — a persistent state machine that
+*        keeps the node's radio on the hub's WiFi channel.
+*
+*        SCANNING: hop channels until we hear the hub (src_id MESH_HUB_SRC_ID),
+*                  then lock the radio to that channel.
+*        LOCKED:   stay put; every MESH_CHANNEL_MONITOR_INTERVAL_MS check that
+*                  the hub is still heard. If it goes silent for
+*                  MESH_HUB_LOST_TIMEOUT_MS, drop back to SCANNING.
+*        BACKOFF:  if a full sweep finds no hub, park on MESH_CHANNEL_DEFAULT
+*                  (so hub-less nodes still converge) and wait an exponentially
+*                  growing delay before sweeping again.
+*
+*        Runs forever (never self-deletes). Masking audio is unaffected by
+*        scanning — only mesh coordination pauses briefly. Spawn only on nodes,
+*        after mesh_init(); the hub's channel is fixed by its router.
+* -------------------------------------------------------------------------- */
+
+void mesh_channel_scan_task(void *arg);
+
+/** @brief True while the node is currently locked onto the hub's channel. */
+bool mesh_channel_is_locked(void);
 
 
 #ifdef __cplusplus

@@ -21,7 +21,9 @@
 typedef struct { bool used, acked; uint8_t mac[ESP_NOW_ETH_ALEN]; uint32_t ts, sent_ms; } pending_ack_t;
 static pending_ack_t s_pending[PENDING_MAX];
 static uint8_t s_results[RESULT_WINDOW];
-static int s_res_idx = 0, s_res_cnt = 0, s_res_sum = 0;
+static int s_res_idx = 0;
+static int s_res_cnt = 0; // how many entries are valid, <= 100
+static int s_res_sum = 0; // how many are 1
 
 /* all of these assume the mesh mutex is already held */
 void result_push(int acked) {
