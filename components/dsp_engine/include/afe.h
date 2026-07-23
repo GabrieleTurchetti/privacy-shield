@@ -1,8 +1,10 @@
 #pragma once
 
+#include "audio_hal.h"
 #include "esp_err.h"
 #include "volume.h"
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -61,6 +63,8 @@ int afe_fetch_chunksize(void);
 
 int afe_fetch_channels(void);
 
+void afe_calibration(void);
+
 /**
  * Feed one frame of raw int16 PCM into the AFE.
  *
@@ -80,16 +84,35 @@ void audio_afe_feed(void *pvParameters);
  */
 void audio_afe_fetch(void *pvParameters);
 
+static void send_to_speaker(audio_packet_t *packet);
+
 /**
  * Audio Front End Destructor essentially
  * */
 void audio_afe_destroy(void);
+
+/**
+ * @breif
+ * ZNCC - Zero-Mean Normalized Cross-Correlation
+ * compares reference frame wih the mic frame
+ * returns a float
+ * 1.0 -> very strong match
+ * 0.0 -> no useful match
+ * -1.0 -> inverted but strong match
+ */
+static float audio_zncc(const int16_t *mic, const int16_t *ref,
+						size_t sample_count);
+
+static int find_best_reference_frame(const int16_t *mic_frame,
+									 size_t sample_size);
 
 uint8_t afe_get_volume(void);
 
 static void update_attack(int64_t timestamp);
 
 static void update_release(int64_t timestamp);
+
+bool has_valid_reference(void);
 
 afe_data_points_t get_afe_delays(void);
 

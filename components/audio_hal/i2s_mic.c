@@ -140,25 +140,16 @@ void audio_hal_mic_read_task(void *pvParameters) {
 			if (packet == NULL) {
 				ESP_LOGE(TAG, "Failed to allocate packet");
 				continue;
+			} else {
+				memcpy(packet->audio_sample, ai_buffer,
+					   feed_chunksize * sizeof(ai_buffer[0]));
+				packet->timestamp = current_time;
+				packet->sample_size = (size_t)feed_chunksize;
 			}
-
-			packet->audio_sample =
-				malloc(feed_chunksize * sizeof(packet->audio_sample[0]));
-			if (packet->audio_sample == NULL) {
-				ESP_LOGE(TAG, "Failed to allocate packet audio");
-				free_audio_packet(packet);
-				continue;
-			}
-
-			memcpy(packet->audio_sample, ai_buffer,
-				   feed_chunksize * sizeof(packet->audio_sample[0]));
-			packet->mic_timestamp = current_time;
-			packet->sample_amount = (size_t)feed_chunksize;
 
 			/* ── Send to AFE pipeline ── */
 			if (audio_input_queue != NULL) {
-				if (xQueueSend(audio_input_queue, (void *)&packet, 1) !=
-					pdPASS) {
+				if (xQueueOverwrite(audio_input_queue, &packet) != pdPASS) {
 					ESP_LOGE(TAG, "Failed to send Microphone data");
 					free_audio_packet(packet);
 				}
@@ -173,7 +164,5 @@ void free_audio_packet(audio_packet_t *packet) {
 	if (packet == NULL) {
 		return;
 	}
-
-	free(packet->audio_sample);
 	free(packet);
 }

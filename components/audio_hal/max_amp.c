@@ -97,17 +97,17 @@ void audio_hal_speaker_task(void *pvParameters) {
 			continue;
 		}
 
-		if (packet == NULL || packet->audio_sample == NULL) {
+		if (packet == NULL) {
 			free_audio_packet(packet);
 			packet = NULL;
 			continue;
 		}
 
 		int16_t timestamp =
-			(int16_t)((esp_timer_get_time() - packet->mic_timestamp) / 1000);
+			(int16_t)((esp_timer_get_time() - packet->timestamp) / 1000);
 		update_delays(timestamp);
 		esp_err_t err = i2s_channel_write(tx_chan, packet->audio_sample,
-										  packet->sample_amount *
+										  packet->sample_size *
 											  sizeof(packet->audio_sample[0]),
 										  &bytes_written, portMAX_DELAY);
 

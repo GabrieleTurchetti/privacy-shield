@@ -13,6 +13,7 @@
 // ==========================================================
 
 #define SPK_SAMPLE_RATE 16000
+#define AUDIO_FRAME_MAX_LENGTH 512
 
 // Initialize the I2S microphone hardware
 esp_err_t audio_hal_mic_init(void);
@@ -30,9 +31,9 @@ void audio_hal_speaker_init(void);
 void audio_hal_speaker_task(void *pvParameters);
 
 typedef struct {
-	int64_t mic_timestamp;
-	size_t sample_amount;
-	int16_t *audio_sample;
+	int64_t timestamp;
+	size_t sample_size;
+	int16_t audio_sample[AUDIO_FRAME_MAX_LENGTH];
 } audio_packet_t;
 
 void free_audio_packet(audio_packet_t *packet);

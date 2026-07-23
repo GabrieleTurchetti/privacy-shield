@@ -5,8 +5,8 @@
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_mac.h"
-#include "esp_wifi.h"
 #include "esp_task_wdt.h"
+#include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
@@ -105,64 +105,73 @@ static uint8_t cpu1_utilization = 0;
 
 // Call this function periodically
 void update_system_metrics(void) {
-    TaskStatus_t *pxTaskStatusArray;
-    volatile UBaseType_t uxArraySize;
-    uint32_t ulTotalRunTime;
+	TaskStatus_t *pxTaskStatusArray;
+	volatile UBaseType_t uxArraySize;
+	uint32_t ulTotalRunTime;
 
-    uxArraySize = uxTaskGetNumberOfTasks();
-    pxTaskStatusArray = pvPortMalloc(uxArraySize * sizeof(TaskStatus_t));
+	uxArraySize = uxTaskGetNumberOfTasks();
+	pxTaskStatusArray = pvPortMalloc(uxArraySize * sizeof(TaskStatus_t));
 
-    if (pxTaskStatusArray != NULL) {
-        uxArraySize = uxTaskGetSystemState(pxTaskStatusArray, uxArraySize, &ulTotalRunTime);
+	if (pxTaskStatusArray != NULL) {
+		uxArraySize = uxTaskGetSystemState(pxTaskStatusArray, uxArraySize,
+										   &ulTotalRunTime);
 
-        uint32_t idle0_time = 0;
-        uint32_t idle1_time = 0;
+		uint32_t idle0_time = 0;
+		uint32_t idle1_time = 0;
 
-        // Find the run times of the idle tasks for both cores
-        for (UBaseType_t x = 0; x < uxArraySize; x++) {
-            if (strncmp(pxTaskStatusArray[x].pcTaskName, "IDLE0", 5) == 0) {
-                idle0_time = pxTaskStatusArray[x].ulRunTimeCounter;
-            } else if (strncmp(pxTaskStatusArray[x].pcTaskName, "IDLE1", 5) == 0) {
-                idle1_time = pxTaskStatusArray[x].ulRunTimeCounter;
-            }
+		// Find the run times of the idle tasks for both cores
+		for (UBaseType_t x = 0; x < uxArraySize; x++) {
+			if (strncmp(pxTaskStatusArray[x].pcTaskName, "IDLE0", 5) == 0) {
+				idle0_time = pxTaskStatusArray[x].ulRunTimeCounter;
+			} else if (strncmp(pxTaskStatusArray[x].pcTaskName, "IDLE1", 5) ==
+					   0) {
+				idle1_time = pxTaskStatusArray[x].ulRunTimeCounter;
+			}
 
 			// Task stack high-water mark monitoring
-            if (pxTaskStatusArray[x].usStackHighWaterMark < 256) {
-                ESP_LOGW(TAG, "Task '%s' is running low on stack! High-Water Mark: %u bytes",
-                         pxTaskStatusArray[x].pcTaskName,
-                         pxTaskStatusArray[x].usStackHighWaterMark);
-            }
-        }
-        vPortFree(pxTaskStatusArray);
+			if (pxTaskStatusArray[x].usStackHighWaterMark < 256) {
+				ESP_LOGW(TAG,
+						 "Task '%s' is running low on stack! High-Water Mark: "
+						 "%u bytes",
+						 pxTaskStatusArray[x].pcTaskName,
+						 pxTaskStatusArray[x].usStackHighWaterMark);
+			}
+		}
+		vPortFree(pxTaskStatusArray);
 
-        uint32_t total_delta = ulTotalRunTime - prev_total_run_time;
-        if (total_delta > 0 && prev_total_run_time > 0) {
-            uint32_t idle0_delta = idle0_time - prev_idle0_time;
-            uint32_t idle1_delta = idle1_time - prev_idle1_time;
+		uint32_t total_delta = ulTotalRunTime - prev_total_run_time;
+		if (total_delta > 0 && prev_total_run_time > 0) {
+			uint32_t idle0_delta = idle0_time - prev_idle0_time;
+			uint32_t idle1_delta = idle1_time - prev_idle1_time;
 
-            // In SMP FreeRTOS, total run time encompasses both cores.
-            // We scale up by 2 to get the percentage per core (since total_delta is 2x real time)
-            uint32_t idle0_pct = (idle0_delta * 100 * 2) / total_delta;
-            uint32_t idle1_pct = (idle1_delta * 100 * 2) / total_delta;
-            
-            // Utilization is the inverse of the idle percentage
-            cpu0_utilization = 100 - (idle0_pct > 100 ? 100 : idle0_pct);
-            cpu1_utilization = 100 - (idle1_pct > 100 ? 100 : idle1_pct);
-        }
+			// In SMP FreeRTOS, total run time encompasses both cores.
+			// We scale up by 2 to get the percentage per core (since
+			// total_delta is 2x real time)
+			uint32_t idle0_pct = (idle0_delta * 100 * 2) / total_delta;
+			uint32_t idle1_pct = (idle1_delta * 100 * 2) / total_delta;
 
-        prev_total_run_time = ulTotalRunTime;
-        prev_idle0_time = idle0_time;
-        prev_idle1_time = idle1_time;
-    }
+			// Utilization is the inverse of the idle percentage
+			cpu0_utilization = 100 - (idle0_pct > 100 ? 100 : idle0_pct);
+			cpu1_utilization = 100 - (idle1_pct > 100 ? 100 : idle1_pct);
+		}
+
+		prev_total_run_time = ulTotalRunTime;
+		prev_idle0_time = idle0_time;
+		prev_idle1_time = idle1_time;
+	}
 }
 
 // Getters to be passed to the STATUS packet compiler
 uint8_t get_cpu0_utilization(void) { return cpu0_utilization; }
 uint8_t get_cpu1_utilization(void) { return cpu1_utilization; }
-uint32_t get_heap_free(void) { return heap_caps_get_free_size(MALLOC_CAP_8BIT); }
-uint32_t get_heap_largest_block(void) { return heap_caps_get_largest_free_block(MALLOC_CAP_8BIT); }
+uint32_t get_heap_free(void) {
+	return heap_caps_get_free_size(MALLOC_CAP_8BIT);
+}
+uint32_t get_heap_largest_block(void) {
+	return heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+}
 
-//This will be removed once we substitute with correct methods
+// This will be removed once we substitute with correct methods
 static uint8_t stub_100(void) { return 100; }
 /* -------------------------------------------------------------------------- */
 /* Entry point                                                                */
@@ -172,21 +181,21 @@ void app_main(void) {
 	log_levels_init();
 
 	system_reboot_counter++;
-    ESP_LOGI(TAG, "System Boot Count: %lu", system_reboot_counter);
+	ESP_LOGI(TAG, "System Boot Count: %lu", system_reboot_counter);
 
-    esp_task_wdt_config_t twdt_config = {
-        .timeout_ms = 5000,
-        .idle_core_mask = (1 << portNUM_PROCESSORS) - 1,
-        .trigger_panic = true,
-    };
+	esp_task_wdt_config_t twdt_config = {
+		.timeout_ms = 5000,
+		.idle_core_mask = (1 << portNUM_PROCESSORS) - 1,
+		.trigger_panic = true,
+	};
 
-    esp_err_t wdt_err = esp_task_wdt_init(&twdt_config);
-    if (wdt_err == ESP_ERR_INVALID_STATE) {
-        ESP_LOGI(TAG, "TWDT already initialized, applying reconfiguration...");
-        ESP_ERROR_CHECK(esp_task_wdt_reconfigure(&twdt_config));
-    } else {
-        ESP_ERROR_CHECK(wdt_err);
-    }
+	esp_err_t wdt_err = esp_task_wdt_init(&twdt_config);
+	if (wdt_err == ESP_ERR_INVALID_STATE) {
+		ESP_LOGI(TAG, "TWDT already initialized, applying reconfiguration...");
+		ESP_ERROR_CHECK(esp_task_wdt_reconfigure(&twdt_config));
+	} else {
+		ESP_ERROR_CHECK(wdt_err);
+	}
 
 	battery_init();
 	uint8_t node_id = get_node_id();
@@ -205,13 +214,13 @@ void app_main(void) {
 	/* ── Web Dashboard state ── */
 	web_dashboard_init();
 
-    /* ── Mesh (ESP-NOW) — receives STATUS from nodes ── */
-    ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
-    ESP_ERROR_CHECK(mesh_init(WIFI_MODE_AP, web_dashboard_update_status, NULL));
-    xTaskCreate(hello_task, "hello", 4096, NULL, 1, NULL);
-    xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
-    ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ " MACSTR,
-             MAC2STR(mesh_get_state()->my_mac));
+	/* ── Mesh (ESP-NOW) — receives STATUS from nodes ── */
+	ESP_LOGI(TAG, "  [..] Initializing ESP-NOW Mesh...");
+	ESP_ERROR_CHECK(mesh_init(WIFI_MODE_AP, web_dashboard_update_status, NULL));
+	xTaskCreate(hello_task, "hello", 4096, NULL, 1, NULL);
+	xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
+	ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ " MACSTR,
+			 MAC2STR(mesh_get_state()->my_mac));
 
 	/* ── WiFi AP + Web Dashboard (Tasks 4.1–4.3) ── */
 	ESP_LOGI(TAG, "  [..] Starting WiFi AP + Web Server...");
@@ -245,26 +254,26 @@ void app_main(void) {
 	commands->set_masking = mask_set_command;
 	commands->unlock = volume_unlock;
 	commands->set_volume_percentage = set_volume_percentage;
-    ESP_ERROR_CHECK(mesh_init(WIFI_MODE_STA,NULL, commands));
-    
-    xTaskCreate(hello_task, "hello", 4096, NULL, 1, NULL);
-    xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
+	ESP_ERROR_CHECK(mesh_init(WIFI_MODE_STA, NULL, commands));
+
+	xTaskCreate(hello_task, "hello", 4096, NULL, 1, NULL);
+	xTaskCreate(prune_task, "prune", 4096, NULL, 1, NULL);
 
 	status_task_params_t *params = malloc(sizeof(*params));
 	if (params == NULL) {
 		ESP_LOGE(TAG, "Failed to allocate memory for status_task_params_t");
 		return;
 	}
-	params->node_id     = node_id;
-	params->is_speech   = is_afe_speech;
-	params->get_volume  = get_volume;
+	params->node_id = node_id;
+	params->is_speech = is_afe_speech;
+	params->get_volume = get_volume;
 	params->get_volume_percentage = get_volume_percentage;
 	params->get_battery = stub_100;
-	params->update_system_metrics        = update_system_metrics;
-    params->get_cpu0_utilization              = get_cpu0_utilization;
-    params->get_cpu1_utilization              = get_cpu1_utilization;
-    params->get_heap_free         = get_heap_free;
-    params->get_heap_largest_block    = get_heap_largest_block;
+	params->update_system_metrics = update_system_metrics;
+	params->get_cpu0_utilization = get_cpu0_utilization;
+	params->get_cpu1_utilization = get_cpu1_utilization;
+	params->get_heap_free = get_heap_free;
+	params->get_heap_largest_block = get_heap_largest_block;
 	xTaskCreate(status_task, "status", 4096, params, 1, NULL);
 	ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ node %u, " MACSTR, node_id,
 			 MAC2STR(mesh_get_state()->my_mac));
@@ -297,21 +306,21 @@ void app_main(void) {
 			 feed_chunksize);
 
 	/* ── Audio Queues ───────────────────────────────────────────────── */
-	int queue_size = sizeof(audio_packet_t *);
+	int queue_item_size = sizeof(audio_packet_t *);
 
-	audio_input_queue = xQueueCreate(10, queue_size);
+	audio_input_queue = xQueueCreate(1, queue_item_size);
 	if (audio_input_queue == NULL) {
 		ESP_LOGE(TAG, "  [!!] Audio queue creation failed!");
 		return;
 	}
 
-	audio_output_queue = xQueueCreate(10, queue_size);
+	audio_output_queue = xQueueCreate(10, queue_item_size);
 	if (audio_output_queue == NULL) {
 		ESP_LOGE(TAG, "  [!!] Noise queue creation failed!");
 		return;
 	}
 
-	audio_intermediate_queue = xQueueCreate(10, queue_size);
+	audio_intermediate_queue = xQueueCreate(10, queue_item_size);
 	if (audio_intermediate_queue == NULL) {
 		ESP_LOGE(TAG, "  [!!] Intermediate AFE Audio queue creation failed!");
 		return;
@@ -337,6 +346,7 @@ void app_main(void) {
 	xTaskCreate(audio_hal_speaker_task, "SPEAKER_TASK", 8192, NULL, 5, NULL);
 	vTaskDelay(pdMS_TO_TICKS(10));
 
+	// afe_calibration();
 	xTaskCreatePinnedToCore(&audio_afe_feed, "AFE_TASK", 8192, NULL, 5, NULL,
 							0);
 	vTaskDelay(pdMS_TO_TICKS(10));
@@ -349,7 +359,7 @@ void app_main(void) {
 
 	/* ── Footer ─────────────────────────────────────────────── */
 	ESP_LOGI(TAG, "+------------------------------------------+");
-	ESP_LOGI(TAG, "|      SYSTEM READY! Running v0.411        |");
+	ESP_LOGI(TAG, "|      SYSTEM READY! Running v0.413        |");
 	ESP_LOGI(TAG, "+------------------------------------------+");
 #endif
 }
