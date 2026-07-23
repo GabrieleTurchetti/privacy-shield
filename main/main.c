@@ -154,11 +154,6 @@ void update_system_metrics(void) {
             cpu1_utilization = 100 - (idle1_pct > 100 ? 100 : idle1_pct);
         }
 
-			// Utilization is the inverse of the idle percentage
-			cpu0_utilization = 100 - (idle0_pct > 100 ? 100 : idle0_pct);
-			cpu1_utilization = 100 - (idle1_pct > 100 ? 100 : idle1_pct);
-		}
-
 		prev_total_run_time = ulTotalRunTime;
 		prev_idle0_time = idle0_time;
 		prev_idle1_time = idle1_time;
