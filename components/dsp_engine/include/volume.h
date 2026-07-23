@@ -12,15 +12,17 @@ extern "C" {
 /* -------------------------------------------------------------------------- */
 
 typedef struct {
-    float current;      /* Smoothed volume level (0.0 = mute, 1.0 = full) */
-    float attack_coeff; /* Ramp-up speed   (e.g. 0.02 = 50ms attack)      */
-    float release_coeff;/* Ramp-down speed (e.g. 0.002 = 500ms release)   */
-    float noise_floor;  /* RMS below this = silence (calibrate at boot)    */
+	float current; /* Smoothed volume level (0.0 = mute, 1.0 = full) */
+	float target;
+	float attack_coeff;	 /* Ramp-up speed   (e.g. 0.02 = 50ms attack)      */
+	float release_coeff; /* Ramp-down speed (e.g. 0.002 = 500ms release)   */
+	float noise_floor;	 /* RMS below this = silence (calibrate at boot)    */
 } volume_state_t;
 
-
-#define DEFAULT_NOISE_FLOOR 500.0f  /* Initial guess for noise floor RMS */
-#define MAX_RMS 2500.0f              /* RMS that maps to full volume (1.0) - Basically it's sensibility*/
+#define DEFAULT_NOISE_FLOOR 500.0f /* Initial guess for noise floor RMS */
+#define MAX_RMS                                                                \
+	2500.0f /* RMS that maps to full volume (1.0) - Basically it's             \
+			   sensibility*/
 
 /* -------------------------------------------------------------------------- */
 /*  API                                                                       */
@@ -109,18 +111,18 @@ void apply_volume(int16_t *buffer, int count, float level);
  * @param masking_active  [OUT] set to true if speech is detected
  * @return uint8_t    current volume 0–100 (for STATUS packet)
  */
-uint8_t volume_process_frame(volume_state_t *vol,
-                             const int16_t *mic_in, int16_t *noise_out,
-                             int count, bool *masking_active, bool is_vad_speech);
+uint8_t volume_process_frame(volume_state_t *vol, const int16_t *mic_in,
+							 int16_t *noise_out, int count,
+							 bool *masking_active, bool is_vad_speech);
 
 /**
  * @brief This method is used to force amplifier to set a specific volume
  *
- * @param value: pass the value that represents the desired volume (should be from 0 to 100 but it will be scaled from 0 to 1 as required by volume.c)
+ * @param value: pass the value that represents the desired volume (should be
+ * from 0 to 100 but it will be scaled from 0 to 1 as required by volume.c)
  */
 void volume_set_command(uint8_t value);
 void set_volume_percentage(uint8_t percentage);
-
 
 /**
  * @brief This method forces tne node to activate or deactivate the masking
@@ -129,13 +131,12 @@ void set_volume_percentage(uint8_t percentage);
  */
 void mask_set_command(uint8_t value);
 
-
 /**
- * @brief This removes alls ovveride that we might have set from previous commands (sent by the hub)
+ * @brief This removes alls ovveride that we might have set from previous
+ * commands (sent by the hub)
  *
  */
 void volume_unlock();
-
 
 /**
  * @brief get current volume level from 0.0 to 1.0
@@ -143,6 +144,11 @@ void volume_unlock();
  */
 uint8_t get_volume();
 uint8_t get_volume_percentage();
+
+/**
+ * @brief This gets the targeted volume in percentage form (uint8_t)
+ */
+uint8_t get_target_volume_pct(volume_state_t *vol);
 
 #ifdef __cplusplus
 }

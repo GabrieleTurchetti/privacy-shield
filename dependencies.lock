@@ -11,6 +11,7 @@ dependencies:
     version: 1.7.19~2
   espressif/dl_fft:
     component_hash: a955ca29581de2177ddf25759273bd83f082b3c805e735fe6ee105858643989b
+    component_hash: a955ca29581de2177ddf25759273bd83f082b3c805e735fe6ee105858643989b
     dependencies:
     - name: idf
       require: private
@@ -18,6 +19,7 @@ dependencies:
     source:
       registry_url: https://components.espressif.com
       type: service
+    version: 0.6.0
     version: 0.6.0
   espressif/esp-dsp:
     component_hash: 12e44db246517a627bc0fe2b255b8335410c0215c98bfba2df5a8e3edea839ef
@@ -30,7 +32,7 @@ dependencies:
       type: service
     version: 1.8.0
   espressif/esp-sr:
-    component_hash: aa58d6a13a49600314a50a27240ccbd17e407f608216a3086d4868e0da2e8053
+    component_hash: 809d0041cdddd98a278f0d5afef7bb60a451290577b98cf718dfffc91bdcbd9b
     dependencies:
     - name: espressif/cjson
       registry_url: https://components.espressif.com
@@ -39,7 +41,7 @@ dependencies:
     - name: espressif/dl_fft
       registry_url: https://components.espressif.com
       require: private
-      version: '>=0.2.0'
+      version: '>=0.6.0'
     - name: espressif/esp-dsp
       registry_url: https://components.espressif.com
       require: private
