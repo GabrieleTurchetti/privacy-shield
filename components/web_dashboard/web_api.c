@@ -25,6 +25,8 @@ typedef struct {
     bool     masking_active;
     uint8_t  volume;
     uint8_t  battery_pct;
+    float delivery_ratio;
+    float packet_loss_rate;
     uint32_t uptime_s;
     uint32_t last_update_ms;
     uint8_t  cpu0;
@@ -61,6 +63,8 @@ void web_dashboard_update_status(const mesh_status_pkt_t *status,
             s_node_cache[i].masking_active = status->masking_active;
             s_node_cache[i].volume        = status->volume;
             s_node_cache[i].battery_pct   = status->battery_pct;
+            s_node_cache[i].delivery_ratio = status->delivery_ratio;
+            s_node_cache[i].packet_loss_rate = status->packet_loss_rate;
             s_node_cache[i].uptime_s      = status->uptime_s;
             s_node_cache[i].cpu0 = status->cpu0_utilization;
             s_node_cache[i].cpu1 = status->cpu1_utilization;
@@ -79,6 +83,8 @@ void web_dashboard_update_status(const mesh_status_pkt_t *status,
             s_node_cache[i].masking_active = status->masking_active;
             s_node_cache[i].volume        = status->volume;
             s_node_cache[i].battery_pct   = status->battery_pct;
+            s_node_cache[i].delivery_ratio = status->delivery_ratio;
+            s_node_cache[i].packet_loss_rate = status->packet_loss_rate;
             s_node_cache[i].uptime_s      = status->uptime_s;
             s_node_cache[i].cpu0 = status->cpu0_utilization;
             s_node_cache[i].cpu1 = status->cpu1_utilization;
@@ -142,6 +148,7 @@ static void json_append_nodes(char *buf, size_t buf_size) {
         bool has_status = false;
         uint8_t cpu0 = 0, cpu1 = 0;
         uint32_t heap_free = 0, heap_largest_block = 0;
+        float delivery_ratio = 0.0f, packet_loss_rate = 0.0f;
 
         for (int j = 0; j < MAX_CACHED_NODES; j++) {
             if (s_node_cache[j].active &&
@@ -149,6 +156,8 @@ static void json_append_nodes(char *buf, size_t buf_size) {
                 mask  = s_node_cache[j].masking_active;
                 vol   = s_node_cache[j].volume;
                 batt  = s_node_cache[j].battery_pct;
+                delivery_ratio = s_node_cache[j].delivery_ratio;
+                packet_loss_rate = s_node_cache[j].packet_loss_rate;
                 uptime = s_node_cache[j].uptime_s;
                 cpu0 = s_node_cache[j].cpu0;
                 cpu1 = s_node_cache[j].cpu1;
@@ -173,6 +182,8 @@ static void json_append_nodes(char *buf, size_t buf_size) {
             "\"masking_active\":%s,"
             "\"volume\":%u,"
             "\"battery_pct\":%u,"
+            "\"delivery_ratio\":%.2f,"
+            "\"packet_loss_rate\":%.2f,"
             "\"cpu0\":%u,"
             "\"cpu1\":%u,"
             "\"heap_free\":%lu,"
@@ -182,6 +193,8 @@ static void json_append_nodes(char *buf, size_t buf_size) {
             has_status ? (mask ? "true" : "false") : "false",
             has_status ? vol : 0,
             has_status ? batt : 0,
+            has_status ? delivery_ratio : 0.0f,
+            has_status ? packet_loss_rate : 0.0f,
             has_status ? cpu0 : 0,                                 
             has_status ? cpu1 : 0,                                
             (unsigned long)(has_status ? heap_free : 0),         
@@ -437,8 +450,11 @@ static const char *DASHBOARD_HTML =
 ".card .actions button{padding:6px 14px;font-size:12px}"
 ".vol-slider{width:100%;margin-top:8px;accent-color:#3b82f6}"
 ".vol-row{display:flex;align-items:center;gap:8px;font-size:12px;margin-top:4px}"
-".empty{text-align:center;color:#64748b;padding:60px 0;font-size:15px}"
+".empty{text-align:center;color:#64748b;padding:60px 0;font-size:15px;grid-column:1/-1}"
 ".footer{text-align:center;padding:24px;color:#475569;font-size:12px}"
+".chart-box{margin-top:12px;padding-top:10px;border-top:1px solid #334155}"
+".chart-title{font-size:11px;color:#94a3b8;margin-bottom:4px;display:flex;justify-content:space-between}"
+".svg-chart{width:100%;height:50px;background:#0f172a;border-radius:4px;overflow:hidden}"
 "</style>"
 "</head>"
 "<body>"
@@ -454,45 +470,92 @@ static const char *DASHBOARD_HTML =
 "</div>"
 "<div id=\"error\" style=\"display:none;background:#7f1d1d;color:#fca5a5;padding:10px 16px;border-radius:8px;margin-bottom:16px;font-size:13px\"></div>"
 "<div id=\"nodes\" class=\"nodes\"></div>"
-"<div id=\"debug\" style=\"margin-top:24px;padding:12px;background:#1e293b;border-radius:8px;font-size:11px;color:#94a3b8;font-family:monospace;white-space:pre-wrap;word-break:break-all\"></div>"
 "<div class=\"footer\">Auto-refreshes every 5s</div>"
 "</div>"
 "<script>"
 "var errEl=document.getElementById('error');"
-"var dbg=document.getElementById('debug');"
 "var refreshCount=0;"
 "window.dragging=false;"
+"var historyData={};"
+"var MAX_PTS=15;"
 
 "function showErr(e){errEl.style.display='block';errEl.textContent='Error: '+(e.message||e);}"
 "function hideErr(){errEl.style.display='none'}"
-"function fmtUptime(s){"
-"var h=Math.floor(s/3600),m=Math.floor((s%3600)/60);"
-"return h+'h '+m+'m'}"
+"function fmtUptime(s){var h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h+'h '+m+'m'}"
+
+"function makeSvgPath(arr,maxVal){"
+"if(!arr||arr.length<2)return '';"
+"var w=260,h=50;"
+"var step=w/(MAX_PTS-1);"
+"return arr.map(function(v,i){"
+"var x=(i*step).toFixed(1);"
+"var y=(h-(Math.min(v,maxVal)/maxVal)*h).toFixed(1);"
+"return (i===0?'M':'L')+x+','+y;"
+"}).join(' ');"
+"}"
 
 "function render(nodes){"
 "if(window.dragging) return;"
 "hideErr();refreshCount++;"
-"dbg.textContent='Refresh #'+refreshCount+' | nodes='+nodes.length+' | '+JSON.stringify(nodes).slice(0,500);"
 "document.getElementById('nodeCount').textContent=nodes.length;"
-"if(!nodes.length){document.getElementById('nodes').innerHTML='<div class=empty>No masking nodes detected.<br>Power on a node to get started.</div>';return}"
+"var container=document.getElementById('nodes');"
+"if(!nodes.length){container.innerHTML='<div class=empty>No masking nodes detected.<br>Power on a node to get started.</div>';historyData={};return}"
 
-"document.getElementById('nodes').innerHTML=nodes.map(function(n){"
+"var activeIds=[];"
+"nodes.forEach(function(n){"
+"activeIds.push(n.node_id);"
+"if(!historyData[n.node_id]) historyData[n.node_id]={cpu0:[],cpu1:[],loss:[]};"
+"var h=historyData[n.node_id];"
+"h.cpu0.push(n.cpu0); if(h.cpu0.length>MAX_PTS) h.cpu0.shift();"
+"h.cpu1.push(n.cpu1); if(h.cpu1.length>MAX_PTS) h.cpu1.shift();"
+"h.loss.push(n.packet_loss_rate); if(h.loss.length>MAX_PTS) h.loss.shift();"
+
+"var cardEl=document.getElementById('node-'+n.node_id);"
 "var badge=n.masking_active?'<span class=\"badge badge-on\">MASKING</span>':'<span class=\"badge badge-off\">SILENT</span>';"
 
-"return '<div class=card>'"
-"+'<div class=name>Node '+n.node_id+' '+badge+'</div>'"
+"var cpu0Path=makeSvgPath(h.cpu0,100);"
+"var cpu1Path=makeSvgPath(h.cpu1,100);"
+"var lossPath=makeSvgPath(h.loss,5);"
+
+"if(!cardEl){"
+"cardEl=document.createElement('div');"
+"cardEl.className='card';"
+"cardEl.id='node-'+n.node_id;"
+"container.appendChild(cardEl);"
+"}"
+
+"cardEl.innerHTML='<div class=name>Node '+n.node_id+' '+badge+'</div>'"
 "+'<div class=mac>'+n.mac+'</div>'"
 "+'<div class=row><span class=label>Volume</span><span class=val>'+n.volume+'%</span></div>'"
 "+'<div class=row><span class=label>Battery</span><span class=val>'+n.battery_pct+'%</span></div>'"
-"+'<div class=row><span class=label>CPU0 - CPU1</span><span class=val>'+n.cpu0+'% - '+n.cpu1+'%</span></div>'"
-"+'<div class=row><span class=label>Memory</span><span class=val>'+parseInt(n.heap_free/1024)+' KB / 7822 KB</span></div>'"
+"+'<div class=row><span class=label>Memory</span><span class=val>'+parseInt(n.heap_free/1024)+' / 7822 KB</span></div>'"
 "+'<div class=row><span class=label>Uptime</span><span class=val>'+fmtUptime(n.uptime_s)+'</span></div>'"
+
+"+'<div class=chart-box>'"
+"+'<div class=chart-title><span>CPU Utilization</span><span style=\"color:#3b82f6\">CPU0: '+n.cpu0+'%</span> <span style=\"color:#a855f7\">CPU1: '+n.cpu1+'%</span></div>'"
+"+'<svg class=svg-chart viewBox=\"0 0 260 50\">'"
+"+'<path d=\"'+cpu0Path+'\" fill=\"none\" stroke=\"#3b82f6\" stroke-width=\"2\"/>'"
+"+'<path d=\"'+cpu1Path+'\" fill=\"none\" stroke=\"#a855f7\" stroke-width=\"2\"/>'"
+"+'</svg></div>'"
+
+"+'<div class=chart-box>'"
+"+'<div class=chart-title><span>Packet Loss</span><span style=\"color:#ef4444\">PL: '+n.packet_loss_rate.toFixed(2)+'%</span></div>'"
+"+'<svg class=svg-chart viewBox=\"0 0 260 50\">'"
+"+'<path d=\"'+lossPath+'\" fill=\"none\" stroke=\"#ef4444\" stroke-width=\"2\"/>'"
+"+'</svg></div>'"
+
 "+'<div class=vol-row><span>Vol</span><input type=range min=0 max=100 value='+n.volume+' class=vol-slider data-node-id='+n.node_id+'><span>'+n.volume+'%</span></div>'"
 "+'<div class=actions>'"
 "+'<button class=btn-mute onclick=\"muteNode('+n.node_id+')\">Mute</button>'"
 "+'<button class=btn-unmute onclick=\"unmuteNode('+n.node_id+')\">Unmute</button>'"
-"+'</div></div>'"
-"}).join('');"
+"+'</div>';"
+"});"
+
+"var allCards=container.querySelectorAll('.card');"
+"allCards.forEach(function(c){"
+"var id=parseInt(c.id.replace('node-',''));"
+"if(activeIds.indexOf(id)===-1){c.remove();delete historyData[id];}"
+"});"
 
 "document.querySelectorAll('.vol-slider').forEach(function(slider){"
 "slider.addEventListener('input',function(){"
@@ -502,7 +565,6 @@ static const char *DASHBOARD_HTML =
 "slider.addEventListener('change',function(){"
 "var nodeId=this.getAttribute('data-node-id');"
 "setVolume(nodeId,this.value);"
-"window.dragging=false;"
 "});"
 "});"
 "}"
@@ -510,7 +572,9 @@ static const char *DASHBOARD_HTML =
 "function refresh(){fetch('/api/nodes').then(function(r){return r.json()}).then(render).catch(showErr)}"
 "function muteNode(id){fetch('/api/node/mute?id='+id,{method:'POST'}).then(refresh).catch(showErr)}"
 "function unmuteNode(id){fetch('/api/node/unmute?id='+id,{method:'POST'}).then(refresh).catch(showErr)}"
-"function setVolume(id,v){fetch('/api/node/volume?level='+v+'&id='+id,{method:'POST'}).then(refresh).catch(showErr)}"
+"function setVolume(id,v){window.dragging=true;fetch('/api/node/volume?level='+v+'&id='+id,{method:'POST'})"
+".then(function(){setTimeout(function(){window.dragging=false;},1000);})"
+".catch(function(e){window.dragging=false;showErr(e);});}"
 "function globalMute(){fetch('/api/global/mute',{method:'POST'}).then(refresh).catch(showErr)}"
 "function globalUnmute(){fetch('/api/global/unmute',{method:'POST'}).then(refresh).catch(showErr)}"
 "refresh();setInterval(refresh,5000)"
