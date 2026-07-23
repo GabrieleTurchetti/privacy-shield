@@ -439,7 +439,20 @@ esp_err_t mesh_send_status(void *arg){
     status.cpu1_utilization = params->get_cpu1_utilization();
     status.heap_free = params->get_heap_free();
     status.heap_largest_block = params->get_heap_largest_block();
-    
+
+    /* Delay KPIs (end-to-end / attack / release) into the packed packet.
+     * Fill a stack-aligned struct first, then copy into packed fields. */
+    if (params->get_delays) {
+        delay_metrics_t d = {0};
+        params->get_delays(&d);
+        status.e2e_avg = d.e2e_avg; status.e2e_min = d.e2e_min; status.e2e_max = d.e2e_max;
+        status.attack_avg = d.attack_avg;
+        status.attack_min = d.attack_min; status.attack_max = d.attack_max;
+        status.release_avg = d.release_avg;
+        status.release_min = d.release_min; status.release_max = d.release_max;
+    }
+
+
     //DELIVERY RATIO CALCULATION
     mesh_lock();
     pending_reap(now_ms);

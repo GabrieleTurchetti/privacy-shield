@@ -18,6 +18,7 @@
 #include "sdkconfig.h"
 #include "volume.h"
 #include "web_dashboard.h"
+#include <math.h>
 #include <stdio.h>
 
 static const char *TAG = LOG_TAG_MAIN;
@@ -170,6 +171,27 @@ uint32_t get_heap_largest_block(void) {
 	return heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
 }
 
+/* Collect the delay KPIs (end-to-end / attack / release) into the mesh
+ * transport struct. Guards the empty-buffer cases (avg → NaN, and the
+ * min=9999 / max=0 sentinels) so nothing invalid reaches the dashboard JSON. */
+static void fill_delay_metrics(delay_metrics_t *out) {
+	double e_avg = get_avg_delay();
+	out->e2e_avg = isfinite(e_avg) ? (float)e_avg : 0.0f;
+	out->e2e_min = (float)get_min_delay();
+	out->e2e_max = (float)get_max_delay();
+	if (out->e2e_min > out->e2e_max) { out->e2e_min = 0.0f; out->e2e_max = 0.0f; }
+
+	afe_data_points_t d = get_afe_delays();
+	out->attack_avg  = isfinite(d.avg_attack)  ? (float)d.avg_attack  : 0.0f;
+	out->release_avg = isfinite(d.avg_release) ? (float)d.avg_release : 0.0f;
+	out->attack_min  = d.min_attack;
+	out->attack_max  = d.max_attack;
+	out->release_min = d.min_release;
+	out->release_max = d.max_release;
+	if (out->attack_min  > out->attack_max)  { out->attack_min  = 0; out->attack_max  = 0; }
+	if (out->release_min > out->release_max) { out->release_min = 0; out->release_max = 0; }
+}
+
 /* -------------------------------------------------------------------------- */
 /* Entry point                                                                */
 /* -------------------------------------------------------------------------- */
@@ -277,6 +299,7 @@ void app_main(void) {
     params->get_cpu1_utilization              = get_cpu1_utilization;
     params->get_heap_free         = get_heap_free;
     params->get_heap_largest_block    = get_heap_largest_block;
+	params->get_delays                = fill_delay_metrics;
 	xTaskCreate(status_task, "status", 4096, params, 1, NULL);
 	ESP_LOGI(TAG, "  [OK] ESP-NOW Mesh ........ node %u, " MACSTR, node_id,
 			 MAC2STR(mesh_get_state()->my_mac));

@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1580 700" role="img">
+<title>Channel Scanning — node ↔ hub channel lock</title>
+<defs>
+<filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="#0f172a" flood-opacity="0.09"/></filter>
+<marker id="ag" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 Z" fill="#64748B"/></marker>
+</defs>
+<style>
+text{font-family:Inter,'Segoe UI',Helvetica,Arial,sans-serif}
+.tt{font-size:27px;font-weight:800;fill:#0F172A}.sub{font-size:14px;fill:#64748B}
+.stt{font-size:19px;font-weight:800}.p{font-size:12.5px;fill:#334155}
+.h{font-size:14.5px;font-weight:800;fill:#0F172A}
+.mono{font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;font-size:11px;fill:#0F172A}
+.note{font-size:11px;fill:#475569}.pill{font-size:10.5px;font-weight:700;fill:#334155}
+.cell{font-family:ui-monospace,Menlo,monospace;font-size:11px;font-weight:700}
+</style>
+<rect x="0" y="0" width="1580" height="700" fill="#EEF2F7"/>
+<rect x="24" y="24" width="1532" height="652" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+<text x="56" y="66" class="tt">Channel Scanning — locking a node to the hub's Wi-Fi channel</text>
+<text x="56" y="92" class="sub">mesh_channel_scan_task (nodes only) · the hub's channel is fixed by its router; each node sweeps to find it, stays locked, and re-scans if it's lost</text>
+
+<!-- START -->
+<rect x="735" y="120" width="110" height="30" rx="15" fill="#475569"/>
+<text x="790" y="140" text-anchor="middle" fill="#FFFFFF" font-size="13" font-weight="700">task start</text>
+<line x1="790" y1="150" x2="790" y2="196" stroke="#64748B" stroke-width="2.2" marker-end="url(#ag)"/>
+
+<!-- ===== state boxes ===== -->
+<!-- SCANNING (center, amber) -->
+<g filter="url(#sh)"><rect x="610" y="196" width="360" height="196" rx="16" fill="#FFFBEB" stroke="#FCD34D" stroke-width="2.2"/></g>
+<text x="634" y="238" class="stt" fill="#B45309">SCANNING</text>
+<text x="634" y="260" class="p">Hop channels; listen for the hub.</text>
+<rect x="634" y="272" width="312" height="104" rx="8" fill="#FEF9E7" stroke="#FCD34D" stroke-width="1"/>
+<text x="648" y="294" class="mono" fill="#92400E">for ch in {1, 6, 11, 2, …, 13}:</text>
+<text x="648" y="311" class="mono" fill="#92400E">  esp_wifi_set_channel(ch)</text>
+<text x="648" y="328" class="mono" fill="#92400E">  dwell 3.3 s, then listen</text>
+<text x="648" y="352" class="mono" fill="#92400E">hub heard → lock this channel</text>
+
+<!-- LOCKED (right, green) -->
+<g filter="url(#sh)"><rect x="1180" y="222" width="300" height="150" rx="16" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="2.2"/></g>
+<text x="1204" y="258" class="stt" fill="#059669">LOCKED</text>
+<text x="1204" y="278" class="p">Parked on the hub's channel.</text>
+<rect x="1204" y="290" width="252" height="70" rx="8" fill="#F0FDF4" stroke="#6EE7B7" stroke-width="1"/>
+<text x="1218" y="309" class="mono" fill="#065F46">s_channel_locked = true</text>
+<text x="1218" y="326" class="mono" fill="#065F46">recheck hub every 5 s</text>
+<text x="1218" y="343" class="mono" fill="#065F46">backoff reset → 5 s</text>
+
+<!-- BACKOFF (left, rose) -->
+<g filter="url(#sh)"><rect x="100" y="222" width="300" height="150" rx="16" fill="#FDF2F8" stroke="#F9A8D4" stroke-width="2.2"/></g>
+<text x="124" y="258" class="stt" fill="#DB2777">BACKOFF</text>
+<text x="124" y="278" class="p">No hub after a full sweep.</text>
+<rect x="124" y="290" width="252" height="70" rx="8" fill="#FCE7F3" stroke="#F9A8D4" stroke-width="1"/>
+<text x="138" y="309" class="mono" fill="#9D174D">park on channel 1</text>
+<text x="138" y="326" class="mono" fill="#9D174D">wait, then re-scan</text>
+<text x="138" y="343" class="mono" fill="#9D174D">5 s → … → 5 min (×2)</text>
+
+<!-- ===== transition arrows (after boxes) ===== -->
+<line x1="972" y1="270" x2="1178" y2="270" stroke="#64748B" stroke-width="2.2" marker-end="url(#ag)"/>
+<line x1="1178" y1="316" x2="974" y2="316" stroke="#64748B" stroke-width="2.2" marker-end="url(#ag)"/>
+<line x1="608" y1="270" x2="402" y2="270" stroke="#64748B" stroke-width="2.2" marker-end="url(#ag)"/>
+<line x1="402" y1="316" x2="606" y2="316" stroke="#64748B" stroke-width="2.2" marker-end="url(#ag)"/>
+
+<!-- ===== transition pills (on top of arrows) ===== -->
+<rect x="1009" y="260" width="132" height="20" rx="10" fill="#FFFFFF" stroke="#6EE7B7" stroke-width="1.3"/><text x="1075" y="274" text-anchor="middle" class="pill">hub heard · src_id 0</text>
+<rect x="1012" y="306" width="126" height="20" rx="10" fill="#FFFFFF" stroke="#94A3B8" stroke-width="1.3"/><text x="1075" y="320" text-anchor="middle" class="pill">hub silent &gt; 60 s</text>
+<rect x="441" y="260" width="128" height="20" rx="10" fill="#FFFFFF" stroke="#F9A8D4" stroke-width="1.3"/><text x="505" y="274" text-anchor="middle" class="pill">full sweep · no hub</text>
+<rect x="442" y="306" width="126" height="20" rx="10" fill="#FFFFFF" stroke="#94A3B8" stroke-width="1.3"/><text x="505" y="320" text-anchor="middle" class="pill">backoff done → retry</text>
+
+<!-- ===== INFO CARDS ===== -->
+<!-- A: sweep -->
+<g filter="url(#sh)"><rect x="60" y="426" width="470" height="212" rx="14" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5"/></g>
+<text x="84" y="456" class="h">Channel sweep — channel_scan_sweep()</text>
+<text x="84" y="480" class="note">Try channels in this fixed order, dwelling on each:</text>
+<g class="cell">
+<rect x="84" y="490" width="28" height="24" rx="4" fill="#FEF3C7" stroke="#FCD34D"/><text x="98" y="507" text-anchor="middle" fill="#92400E">1</text>
+<rect x="115" y="490" width="28" height="24" rx="4" fill="#FEF3C7" stroke="#FCD34D"/><text x="129" y="507" text-anchor="middle" fill="#92400E">6</text>
+<rect x="146" y="490" width="28" height="24" rx="4" fill="#FEF3C7" stroke="#FCD34D"/><text x="160" y="507" text-anchor="middle" fill="#92400E">11</text>
+<rect x="177" y="490" width="28" height="24" rx="4" fill="#F1F5F9" stroke="#CBD5E1"/><text x="191" y="507" text-anchor="middle" fill="#475569">2</text>
+<rect x="208" y="490" width="28" height="24" rx="4" fill="#F1F5F9" stroke="#CBD5E1"/><text x="222" y="507" text-anchor="middle" fill="#475569">3</text>
+<rect x="239" y="490" width="28" height="24" rx="4" fill="#F1F5F9" stroke="#CBD5E1"/><text x="253" y="507" text-anchor="middle" fill="#475569">4</text>
+<rect x="270" y="490" width="28" height="24" rx="4" fill="#F1F5F9" stroke="#CBD5E1"/><text x="284" y="507" text-anchor="middle" fill="#475569">5</text>
+<rect x="301" y="490" width="28" height="24" rx="4" fill="#F1F5F9" stroke="#CBD5E1"/><text x="315" y="507" text-anchor="middle" fill="#475569">7</text>
+<rect x="332" y="490" width="28" height="24" rx="4" fill="#F1F5F9" stroke="#CBD5E1"/><text x="346" y="507" text-anchor="middle" fill="#475569">8</text>
+<rect x="363" y="490" width="28" height="24" rx="4" fill="#F1F5F9" stroke="#CBD5E1"/><text x="377" y="507" text-anchor="middle" fill="#475569">9</text>
+<rect x="394" y="490" width="28" height="24" rx="4" fill="#F1F5F9" stroke="#CBD5E1"/><text x="408" y="507" text-anchor="middle" fill="#475569">10</text>
+<rect x="425" y="490" width="28" height="24" rx="4" fill="#F1F5F9" stroke="#CBD5E1"/><text x="439" y="507" text-anchor="middle" fill="#475569">12</text>
+<rect x="456" y="490" width="28" height="24" rx="4" fill="#F1F5F9" stroke="#CBD5E1"/><text x="470" y="507" text-anchor="middle" fill="#475569">13</text>
+</g>
+<text x="84" y="538" class="note">1 · 6 · 11 first (the non-overlapping 2.4 GHz channels).</text>
+<text x="84" y="562" class="mono">dwell = HELLO 3 s + 300 ms = 3.3 s / channel</text>
+<text x="84" y="586" class="note">STA is unassociated, so the node is free to force the</text>
+<text x="84" y="602" class="note">channel; the first channel that hears the hub wins.</text>
+
+<!-- B: hub detect -->
+<g filter="url(#sh)"><rect x="555" y="426" width="470" height="212" rx="14" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5"/></g>
+<text x="579" y="456" class="h">Spotting the hub</text>
+<text x="579" y="480" class="note">The hub is simply whoever transmits src_id = 0.</text>
+<rect x="579" y="492" width="422" height="74" rx="8" fill="#EFF6FF" stroke="#93C5FD" stroke-width="1"/>
+<text x="595" y="514" class="mono" fill="#1D4ED8">// in the ESP-NOW receive callback</text>
+<text x="595" y="531" class="mono" fill="#1D4ED8">if (hdr->src_id == MESH_HUB_SRC_ID)   // 0</text>
+<text x="595" y="548" class="mono" fill="#1D4ED8">    s_last_hub_heard_ms = now;</text>
+<text x="579" y="592" class="note">That one timestamp does double duty: pick the channel</text>
+<text x="579" y="608" class="note">while scanning, and detect the hub going silent while locked.</text>
+
+<!-- C: constants -->
+<g filter="url(#sh)"><rect x="1050" y="426" width="470" height="212" rx="14" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.5"/></g>
+<text x="1074" y="456" class="h">Constants (mesh_core.h)</text>
+<text x="1074" y="484" class="mono">HELLO_INTERVAL         3 s</text>
+<text x="1074" y="502" class="mono">SCAN_DWELL             3.3 s / channel</text>
+<text x="1074" y="520" class="mono">MONITOR_INTERVAL       5 s</text>
+<text x="1074" y="538" class="mono">HUB_LOST_TIMEOUT       60 s</text>
+<text x="1074" y="556" class="mono">RESCAN_BACKOFF    5 s → 5 min (×2)</text>
+<text x="1074" y="574" class="mono">CHANNEL_DEFAULT        1</text>
+<text x="1074" y="592" class="mono">CHANNEL range          1 – 13</text>
+<text x="1074" y="620" class="note" fill="#64748B">Node only — the hub's channel is fixed by its router.</text>
+</svg>

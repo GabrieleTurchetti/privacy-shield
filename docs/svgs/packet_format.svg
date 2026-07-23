@@ -1,112 +1,101 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1563 590" role="img">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 772" role="img">
 <title>ESP-NOW Packet Formats</title>
-<defs><filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="#0f172a" flood-opacity="0.09"/></filter><marker id="ar_blue" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#2563EB"/></marker><marker id="ar_green" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#059669"/></marker><marker id="ar_violet" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#7C3AED"/></marker><marker id="ar_amber" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#B45309"/></marker><marker id="ar_slate" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#475569"/></marker><marker id="ar_teal" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#0D9488"/></marker></defs>
-<style>text{font-family:Inter,'Segoe UI',Helvetica,Arial,sans-serif}.tt{font-size:29px;font-weight:800;fill:#0F172A}.sub{font-size:14.5px;fill:#64748B}.h{font-size:16px;font-weight:700;fill:#0F172A}.s{font-size:12.5px;fill:#64748B}.lab{font-size:12px;font-weight:700}.num{font-size:19px;font-weight:800}.mono{font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;font-size:12px;fill:#0F172A}.monos{font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;font-size:11px;fill:#64748B}.tag{font-size:10.5px;font-weight:700}.ico{fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}</style>
-<rect x="0" y="0" width="1563" height="590" fill="#EEF2F7"/>
-<rect x="24" y="24" width="1515" height="542" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
-<text x="56" y="74" class="tt">ESP-NOW Packet Formats</text>
-<text x="56" y="100" class="sub">Byte-exact layout from mesh_core.h (__attribute__((packed))) · ESP-NOW payload ≤ 250 B</text>
-<text x="56" y="126" class="s" font-weight="700" fill="#94A3B8">byte offset</text>
-<line x1="205" y1="130" x2="205" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="236.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">0</text>
-<line x1="267" y1="130" x2="267" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="298.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">1</text>
-<line x1="329" y1="130" x2="329" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="360.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">2</text>
-<line x1="391" y1="130" x2="391" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="422.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">3</text>
-<line x1="453" y1="130" x2="453" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="484.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">4</text>
-<line x1="515" y1="130" x2="515" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="546.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">5</text>
-<line x1="577" y1="130" x2="577" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="608.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">6</text>
-<line x1="639" y1="130" x2="639" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="670.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">7</text>
-<line x1="701" y1="130" x2="701" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="732.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">8</text>
-<line x1="763" y1="130" x2="763" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="794.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">9</text>
-<line x1="825" y1="130" x2="825" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="856.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">10</text>
-<line x1="887" y1="130" x2="887" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="918.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">11</text>
-<line x1="949" y1="130" x2="949" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="980.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">12</text>
-<line x1="1011" y1="130" x2="1011" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="1042.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">13</text>
-<line x1="1073" y1="130" x2="1073" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="1104.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">14</text>
-<line x1="1135" y1="130" x2="1135" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="1166.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">15</text>
-<line x1="1197" y1="130" x2="1197" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="1228.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">16</text>
-<line x1="1259" y1="130" x2="1259" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="1290.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">17</text>
-<line x1="1321" y1="130" x2="1321" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="1352.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">18</text>
-<line x1="1383" y1="130" x2="1383" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="1414.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">19</text>
-<line x1="1445" y1="130" x2="1445" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<text x="1476.0" y="132" text-anchor="middle" class="monos" fill="#94A3B8">20</text>
-<line x1="1507" y1="130" x2="1507" y2="137" stroke="#CBD5E1" stroke-width="1"/>
-<rect x="52" y="150" width="6" height="58" rx="3" fill="#2563EB"/>
-<text x="70" y="176.0" class="num" fill="#2563EB">HELLO</text>
-<text x="70" y="195.0" class="monos">6 B</text>
-<rect x="205" y="150" width="62" height="58" rx="7" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.8"/>
-<text x="236.0" y="178.0" text-anchor="middle" class="mono" font-weight="700">type</text>
-<text x="236.0" y="194.0" text-anchor="middle" class="monos">1 B</text>
-<rect x="267" y="150" width="62" height="58" rx="7" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.8"/>
-<text x="298.0" y="178.0" text-anchor="middle" class="mono" font-weight="700">src_id</text>
-<text x="298.0" y="194.0" text-anchor="middle" class="monos">1 B</text>
-<rect x="329" y="150" width="248" height="58" rx="7" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.8"/>
-<text x="453.0" y="178.0" text-anchor="middle" class="mono" font-weight="700">timestamp_ms</text>
-<text x="453.0" y="194.0" text-anchor="middle" class="monos">4 B</text>
-<rect x="52" y="236" width="6" height="58" rx="3" fill="#059669"/>
-<text x="70" y="262.0" class="num" fill="#059669">STATUS</text>
-<text x="70" y="281.0" class="monos">21 B</text>
-<rect x="205" y="236" width="372" height="58" rx="7" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.8"/>
-<text x="391.0" y="264.0" text-anchor="middle" class="mono" font-weight="700">header</text>
-<text x="391.0" y="280.0" text-anchor="middle" class="monos">6 B</text>
-<rect x="577" y="236" width="62" height="58" rx="7" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="1.8"/>
-<text x="608.0" y="264.0" text-anchor="middle" class="mono" font-weight="700">masking</text>
-<text x="608.0" y="280.0" text-anchor="middle" class="monos">1 B</text>
-<rect x="639" y="236" width="62" height="58" rx="7" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="1.8"/>
-<text x="670.0" y="264.0" text-anchor="middle" class="mono" font-weight="700">volume</text>
-<text x="670.0" y="280.0" text-anchor="middle" class="monos">1 B</text>
-<rect x="701" y="236" width="62" height="58" rx="7" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="1.8"/>
-<text x="732.0" y="264.0" text-anchor="middle" class="mono" font-weight="700">battery</text>
-<text x="732.0" y="280.0" text-anchor="middle" class="monos">1 B</text>
-<rect x="763" y="236" width="248" height="58" rx="7" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="1.8"/>
-<text x="887.0" y="264.0" text-anchor="middle" class="mono" font-weight="700">delivery_ratio</text>
-<text x="887.0" y="280.0" text-anchor="middle" class="monos">4 B</text>
-<rect x="1011" y="236" width="248" height="58" rx="7" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="1.8"/>
-<text x="1135.0" y="264.0" text-anchor="middle" class="mono" font-weight="700">loss_rate</text>
-<text x="1135.0" y="280.0" text-anchor="middle" class="monos">4 B</text>
-<rect x="1259" y="236" width="248" height="58" rx="7" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="1.8"/>
-<text x="1383.0" y="264.0" text-anchor="middle" class="mono" font-weight="700">uptime_s</text>
-<text x="1383.0" y="280.0" text-anchor="middle" class="monos">4 B</text>
-<rect x="52" y="322" width="6" height="58" rx="3" fill="#B45309"/>
-<text x="70" y="348.0" class="num" fill="#B45309">COMMAND</text>
-<text x="70" y="367.0" class="monos">8 B</text>
-<rect x="205" y="322" width="372" height="58" rx="7" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.8"/>
-<text x="391.0" y="350.0" text-anchor="middle" class="mono" font-weight="700">header</text>
-<text x="391.0" y="366.0" text-anchor="middle" class="monos">6 B</text>
-<rect x="577" y="322" width="62" height="58" rx="7" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.8"/>
-<text x="608.0" y="350.0" text-anchor="middle" class="mono" font-weight="700">command</text>
-<text x="608.0" y="366.0" text-anchor="middle" class="monos">1 B</text>
-<rect x="639" y="322" width="62" height="58" rx="7" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.8"/>
-<text x="670.0" y="350.0" text-anchor="middle" class="mono" font-weight="700">value</text>
-<text x="670.0" y="366.0" text-anchor="middle" class="monos">1 B</text>
-<rect x="52" y="408" width="6" height="58" rx="3" fill="#7C3AED"/>
-<text x="70" y="434.0" class="num" fill="#7C3AED">ACK</text>
-<text x="70" y="453.0" class="monos">10 B</text>
-<rect x="205" y="408" width="372" height="58" rx="7" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.8"/>
-<text x="391.0" y="436.0" text-anchor="middle" class="mono" font-weight="700">header</text>
-<text x="391.0" y="452.0" text-anchor="middle" class="monos">6 B</text>
-<rect x="577" y="408" width="248" height="58" rx="7" fill="#F5F3FF" stroke="#A78BFA" stroke-width="1.8"/>
-<text x="701.0" y="436.0" text-anchor="middle" class="mono" font-weight="700">ack_timestamp_ms</text>
-<text x="701.0" y="452.0" text-anchor="middle" class="monos">4 B</text>
-<rect x="205" y="500" width="15" height="15" rx="3" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.8"/>
-<text x="229" y="512" class="s">Shared 6-byte <tspan font-weight="700" fill="#0F172A">header</tspan> = type (1 B · 0 = Hub, 1–254 = Node) + src_id (1 B) + timestamp_ms (4 B) — begins every packet.</text>
+<defs><filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="#0f172a" flood-opacity="0.09"/></filter></defs>
+<style>text{font-family:Inter,'Segoe UI',Helvetica,Arial,sans-serif}.tt{font-size:27px;font-weight:800;fill:#0F172A}.sub{font-size:14px;fill:#64748B}.h{font-size:16px;font-weight:800;fill:#0F172A}.lbl{font-size:12.5px;font-weight:800}.s{font-size:12px;fill:#64748B}.fn{font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;font-size:12px;font-weight:700;fill:#0F172A}.fb{font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;font-size:10.5px;fill:#64748B}.mono{font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;font-size:11.5px;fill:#0F172A}.monos{font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;font-size:11px;fill:#64748B}.seg{font-size:12px;font-weight:800;fill:#FFFFFF}.segb{font-size:10.5px;font-weight:700;fill:#FFFFFF}</style>
+<rect x="0" y="0" width="1560" height="772" fill="#EEF2F7"/>
+<rect x="24" y="24" width="1512" height="724" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+<text x="56" y="66" class="tt">ESP-NOW Packet Formats</text>
+<text x="56" y="92" class="sub">Byte-exact from mesh_core.h (packed structs) · every packet begins with the shared 6-byte header · ESP-NOW payload ≤ 250 B</text>
+<text x="64" y="132" class="lbl" fill="#475569">Common header · 6 B  (mesh_header_t)</text>
+<rect x="64" y="142" width="60" height="52" rx="7" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.6"/>
+<text x="94.0" y="166.0" text-anchor="middle" class="fn" fill="#475569">type</text>
+<text x="94.0" y="183.0" text-anchor="middle" class="fb">1 B</text>
+<rect x="126" y="142" width="60" height="52" rx="7" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.6"/>
+<text x="156.0" y="166.0" text-anchor="middle" class="fn" fill="#475569">src_id</text>
+<text x="156.0" y="183.0" text-anchor="middle" class="fb">1 B</text>
+<rect x="188" y="142" width="180" height="52" rx="7" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.6"/>
+<text x="278.0" y="166.0" text-anchor="middle" class="fn" fill="#475569">timestamp_ms</text>
+<text x="278.0" y="183.0" text-anchor="middle" class="fb">4 B</text>
+<text x="392" y="162" class="monos">type: HELLO 0x01 · STATUS 0x02 · COMMAND 0x03 · ACK 0x04</text>
+<text x="392" y="182" class="monos">src_id: 0 = hub · 1–254 = masking node   ·   timestamp_ms = FreeRTOS tick (ms)</text>
+<g filter="url(#sh)"><rect x="64" y="236" width="460" height="130" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.6"/></g>
+<text x="86" y="270" class="h">HELLO</text>
+<rect x="436" y="252" width="66" height="24" rx="12" fill="#0F172A"/>
+<text x="469" y="269" text-anchor="middle" class="seg">6 B</text>
+<rect x="86" y="292" width="150" height="46" rx="7" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.6"/>
+<text x="161.0" y="313.0" text-anchor="middle" class="fn" fill="#475569">header</text>
+<text x="161.0" y="330.0" text-anchor="middle" class="fb">6 B</text>
+<text x="86" y="360" class="s">presence beacon — header only, no payload</text>
+<g filter="url(#sh)"><rect x="548" y="236" width="460" height="130" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.6"/></g>
+<text x="570" y="270" class="h">COMMAND</text>
+<rect x="920" y="252" width="66" height="24" rx="12" fill="#0F172A"/>
+<text x="953" y="269" text-anchor="middle" class="seg">8 B</text>
+<rect x="570" y="292" width="150" height="46" rx="7" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.6"/>
+<text x="645.0" y="313.0" text-anchor="middle" class="fn" fill="#475569">header</text>
+<text x="645.0" y="330.0" text-anchor="middle" class="fb">6 B</text>
+<rect x="726" y="292" width="60" height="46" rx="7" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.6"/>
+<text x="756.0" y="313.0" text-anchor="middle" class="fn" fill="#B45309">command</text>
+<text x="756.0" y="330.0" text-anchor="middle" class="fb">1 B</text>
+<rect x="792" y="292" width="60" height="46" rx="7" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.6"/>
+<text x="822.0" y="313.0" text-anchor="middle" class="fn" fill="#B45309">value</text>
+<text x="822.0" y="330.0" text-anchor="middle" class="fb">1 B</text>
+<text x="570" y="360" class="s">hub → node · MUTE·UNMUTE·SET_VOLUME·REBOOT·UNLOCK</text>
+<g filter="url(#sh)"><rect x="1032" y="236" width="464" height="130" rx="14" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.6"/></g>
+<text x="1054" y="270" class="h">ACK</text>
+<rect x="1408" y="252" width="66" height="24" rx="12" fill="#0F172A"/>
+<text x="1441" y="269" text-anchor="middle" class="seg">10 B</text>
+<rect x="1054" y="292" width="150" height="46" rx="7" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.6"/>
+<text x="1129.0" y="313.0" text-anchor="middle" class="fn" fill="#475569">header</text>
+<text x="1129.0" y="330.0" text-anchor="middle" class="fb">6 B</text>
+<rect x="1210" y="292" width="120" height="46" rx="7" fill="#F5F3FF" stroke="#C4B5FD" stroke-width="1.6"/>
+<text x="1270.0" y="313.0" text-anchor="middle" class="fn" fill="#7C3AED">ack_timestamp_ms</text>
+<text x="1270.0" y="330.0" text-anchor="middle" class="fb">4 B</text>
+<text x="1054" y="360" class="s">echoes the STATUS timestamp being acknowledged</text>
+<g filter="url(#sh)"><rect x="64" y="392" width="1432" height="352" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.6"/></g>
+<text x="88" y="426" class="h">STATUS · 59 B  (mesh_status_pkt_t) — node → hub telemetry</text>
+<rect x="1404" y="408" width="70" height="24" rx="12" fill="#0F172A"/><text x="1439" y="425" text-anchor="middle" class="seg">59 B</text>
+<rect x="90.0" y="448" width="140.1" height="50" rx="6" fill="#475569"/>
+<text x="160.1" y="471.0" text-anchor="middle" class="seg">header</text>
+<text x="160.1" y="488.0" text-anchor="middle" class="segb">6 B</text>
+<rect x="230.1" y="448" width="70.1" height="50" rx="6" fill="#059669"/>
+<text x="265.2" y="471.0" text-anchor="middle" class="seg">node state</text>
+<text x="265.2" y="488.0" text-anchor="middle" class="segb">3 B</text>
+<rect x="300.2" y="448" width="186.8" height="50" rx="6" fill="#2563EB"/>
+<text x="393.6" y="471.0" text-anchor="middle" class="seg">link KPIs</text>
+<text x="393.6" y="488.0" text-anchor="middle" class="segb">8 B</text>
+<rect x="487.1" y="448" width="93.4" height="50" rx="6" fill="#0D9488"/>
+<text x="533.8" y="471.0" text-anchor="middle" class="seg">uptime</text>
+<text x="533.8" y="488.0" text-anchor="middle" class="segb">4 B</text>
+<rect x="580.5" y="448" width="233.6" height="50" rx="6" fill="#7C3AED"/>
+<text x="697.3" y="471.0" text-anchor="middle" class="seg">system health</text>
+<text x="697.3" y="488.0" text-anchor="middle" class="segb">10 B</text>
+<rect x="814.0" y="448" width="654.0" height="50" rx="6" fill="#B45309"/>
+<text x="1141.0" y="471.0" text-anchor="middle" class="seg">latency KPIs</text>
+<text x="1141.0" y="488.0" text-anchor="middle" class="segb">28 B</text>
+<text x="90" y="516" class="fb">byte 0</text>
+<text x="1468" y="516" text-anchor="end" class="fb">byte 58</text>
+<rect x="88" y="529" width="15" height="15" rx="3" fill="#475569"/>
+<text x="112" y="542" class="lbl" fill="#475569">header</text>
+<text x="250" y="542" class="mono" font-weight="700">6 B</text>
+<text x="310" y="542" class="monos">type · src_id · timestamp_ms</text>
+<rect x="88" y="560" width="15" height="15" rx="3" fill="#059669"/>
+<text x="112" y="573" class="lbl" fill="#059669">node state</text>
+<text x="250" y="573" class="mono" font-weight="700">3 B</text>
+<text x="310" y="573" class="monos">masking_active (1) · volume (1) · battery_pct (1)</text>
+<rect x="88" y="591" width="15" height="15" rx="3" fill="#2563EB"/>
+<text x="112" y="604" class="lbl" fill="#2563EB">link KPIs</text>
+<text x="250" y="604" class="mono" font-weight="700">8 B</text>
+<text x="310" y="604" class="monos">delivery_ratio (4, float) · packet_loss_rate (4, float)</text>
+<rect x="88" y="622" width="15" height="15" rx="3" fill="#0D9488"/>
+<text x="112" y="635" class="lbl" fill="#0D9488">uptime</text>
+<text x="250" y="635" class="mono" font-weight="700">4 B</text>
+<text x="310" y="635" class="monos">uptime_s (4, seconds since boot)</text>
+<rect x="88" y="653" width="15" height="15" rx="3" fill="#7C3AED"/>
+<text x="112" y="666" class="lbl" fill="#7C3AED">system health</text>
+<text x="250" y="666" class="mono" font-weight="700">10 B</text>
+<text x="310" y="666" class="monos">cpu0_utilization (1) · cpu1_utilization (1) · heap_free (4) · heap_largest_block (4)</text>
+<rect x="88" y="684" width="15" height="15" rx="3" fill="#B45309"/>
+<text x="112" y="697" class="lbl" fill="#B45309">latency KPIs</text>
+<text x="250" y="697" class="mono" font-weight="700">28 B</text>
+<text x="310" y="697" class="monos">e2e {avg,min,max} 12 · attack {avg 4, min 2, max 2} · release {avg 4, min 2, max 2}</text>
 </svg>

@@ -5,7 +5,7 @@
 <rect x="0" y="0" width="1360" height="600" fill="#EEF2F7"/>
 <rect x="24" y="24" width="1312" height="552" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
 <text x="56" y="74" class="tt">Node Discovery — HELLO &amp; Neighbor Table</text>
-<text x="56" y="100" class="sub">Each node broadcasts HELLO every 10 s; neighbors are learned automatically and pruned after 30 s of silence</text>
+<text x="56" y="100" class="sub">Each node broadcasts HELLO every 3 s; neighbors are learned automatically and pruned after 30 s of silence</text>
 <g filter="url(#sh)"><rect x="120" y="150" width="150" height="58" rx="14" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="2"/></g>
 <g transform="translate(140,163)" stroke="#059669" class="ico"><rect x="0" y="4" width="26" height="26" rx="4"/><line x1="6" y1="0" x2="6" y2="4"/><line x1="13" y1="0" x2="13" y2="4"/><line x1="20" y1="0" x2="20" y2="4"/><line x1="6" y1="30" x2="6" y2="34"/><line x1="13" y1="30" x2="13" y2="34"/><line x1="20" y1="30" x2="20" y2="34"/><circle cx="13" cy="17" r="5"/></g>
 <text x="180" y="185" class="h" fill="#065F46">Node 1</text>
@@ -14,7 +14,7 @@
 <g transform="translate(580,163)" stroke="#2563EB" class="ico"><rect x="0" y="4" width="26" height="26" rx="4"/><line x1="6" y1="0" x2="6" y2="4"/><line x1="13" y1="0" x2="13" y2="4"/><line x1="20" y1="0" x2="20" y2="4"/><line x1="6" y1="30" x2="6" y2="34"/><line x1="13" y1="30" x2="13" y2="34"/><line x1="20" y1="30" x2="20" y2="34"/><circle cx="13" cy="17" r="5"/></g>
 <text x="620" y="185" class="h" fill="#1D4ED8">Node 2</text>
 <line x1="635" y1="208" x2="635" y2="386" stroke="#CBD5E1" stroke-width="2" stroke-dasharray="4 5"/>
-<text x="205" y="258" class="s" font-weight="700" fill="#475569">hello_task · broadcast every 10 s</text>
+<text x="205" y="258" class="s" font-weight="700" fill="#475569">hello_task · broadcast every 3 s</text>
 <path d="M195,292 L637,292" fill="none" stroke="#059669" stroke-width="2.2" marker-end="url(#ar_green)"/>
 <rect x="305" y="280" width="220" height="24" rx="6" fill="#FFFFFF" stroke="#6EE7B7" stroke-width="1.3"/>
 <text x="415" y="296" text-anchor="middle" class="mono" fill="#065F46">HELLO { src_id = 1 }</text>

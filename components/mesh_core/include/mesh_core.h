@@ -79,6 +79,17 @@ typedef struct __attribute__((packed)) {
 } mesh_hello_pkt_t;
 
 /* -------------------------------------------------------------------------- */
+/*  Delay metrics (end-to-end / attack / release), min / max / avg            */
+/*  Plain transport struct — the node fills it via status_task_params.        */
+/* -------------------------------------------------------------------------- */
+
+typedef struct {
+    float   e2e_avg,   e2e_min,   e2e_max;      /* mic→speaker delay (ms) */
+    float   attack_avg; int16_t attack_min, attack_max;  /* masking attack delay */
+    float   release_avg; int16_t release_min, release_max; /* masking release delay */
+} delay_metrics_t;
+
+/* -------------------------------------------------------------------------- */
 /*  STATUS packet (node reports to hub / neighbors)                           */
 /* -------------------------------------------------------------------------- */
 
@@ -94,6 +105,10 @@ typedef struct __attribute__((packed)) {
     uint8_t  cpu1_utilization; /* CPU1 utilization percentage (0-100) */
     uint32_t heap_free;        /* Free heap size in bytes */
     uint32_t heap_largest_block; /* Largest free heap block in bytes */
+    /* Delay KPIs (ms). avg = rolling mean, min/max = running extremes. */
+    float e2e_avg,   e2e_min,   e2e_max;
+    float attack_avg;  int16_t attack_min,  attack_max;
+    float release_avg; int16_t release_min, release_max;
 } mesh_status_pkt_t;
 
 //Used to pass web dashboard refresh method
@@ -307,6 +322,7 @@ typedef struct {
     uint8_t (*get_cpu1_utilization)(void); //get CPU1 utilization
     uint32_t (*get_heap_free)(void); //get free heap size
     uint32_t (*get_heap_largest_block)(void); //get largest free heap block
+    void (*get_delays)(delay_metrics_t *out); //fill e2e/attack/release min/max/avg
 } status_task_params_t;
 
 void status_task(void *arg);

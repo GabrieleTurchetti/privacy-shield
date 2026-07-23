@@ -44,6 +44,7 @@ function mockNodes() {
       cpu0: 20, cpu1: 15,
       heap_free: 4600000, heap_largest_block: 3200000,
       uptime_s: id * 5400,
+      e2e_min: 6, e2e_max: 18, attack_min: 3, attack_max: 12, release_min: 40, release_max: 120,
     }));
   }
   return window.__mock.map((n) => {
@@ -56,6 +57,9 @@ function mockNodes() {
       delivery_ratio: 1 - loss,
       masking_active: n.masking_active,
       volume: n.volume,
+      e2e_avg: 8 + Math.random() * 8,
+      attack_avg: 4 + Math.random() * 6,
+      release_avg: 55 + Math.random() * 50,
     };
   });
 }
@@ -79,6 +83,10 @@ const C_CPU0 = '#3b82f6';
 const C_CPU1 = '#8b5cf6';
 const C_LOSS = '#ef4444';
 const C_DELIVERY = '#10b981';
+const C_DELAY_E2E = '#22d3ee'; // cyan
+const C_DELAY_ATT = '#f59e0b'; // amber
+const C_DELAY_REL = '#f472b6'; // pink
+const C_REF = '#94a3b8';       // min/max reference line (neutral, reads on both themes)
 
 /* -------------------------------------------------------------------------- */
 /*  Theme                                                                      */
@@ -98,7 +106,7 @@ const ChevronIcon = html`<svg viewBox="0 0 24 24" fill="none" stroke="currentCol
 /* -------------------------------------------------------------------------- */
 /*  Sparkline — smooth area + line, gradient stroke                           */
 /* -------------------------------------------------------------------------- */
-function Sparkline({ series, max, fmt = (v) => Math.round(v), unit = '%', w = 260, hgt = 46 }) {
+function Sparkline({ series, max, refs = [], fmt = (v) => Math.round(v), unit = '%', w = 260, hgt = 46 }) {
   const [hi, setHi] = useState(-1);
   const step = w / (MAX_PTS - 1);
   const yOf = (v) => hgt - Math.min(v, max) / max * (hgt - 4) - 2;
@@ -119,6 +127,9 @@ function Sparkline({ series, max, fmt = (v) => Math.round(v), unit = '%', w = 26
     <div class="spark-wrap" style=${'height:' + hgt + 'px'}>
       <svg class="spark" style=${'height:' + hgt + 'px'} viewBox=${'0 0 ' + w + ' ' + hgt} preserveAspectRatio="none"
            onMouseMove=${onMove} onMouseLeave=${() => setHi(-1)}>
+        ${refs.map((rf) => html`<line x1="0" y1=${+yOf(rf.value).toFixed(1)}
+            x2=${w} y2=${+yOf(rf.value).toFixed(1)} stroke=${rf.color}
+            stroke-width="1" stroke-dasharray="3 3" opacity="0.55" />`)}
         ${series.map((s, si) => {
           const arr = s.data;
           if (!arr || arr.length < 2) return null;
@@ -172,6 +183,26 @@ function StatTile({ label, value, accent }) {
     <div class="tile">
       <div class=${'tile-value' + (accent ? ' accent' : '')}>${value}</div>
       <div class="tile-label">${label}</div>
+    </div>`;
+}
+
+/* Delay KPI chart: avg over time, with min/max as dashed reference lines. */
+function DelayChart({ label, data, avg, min, max, color, hgt = 96 }) {
+  const scaleMax = Math.max(max, avg, 1) * 1.15; // headroom so max line sits inside
+  return html`
+    <div class="chart">
+      <div class="chart-head">
+        <span>${label}</span>
+        <span class="legend">
+          <b style=${'color:' + color}>${avg.toFixed(1)} ms</b>
+          <span class="legend-mut">min ${min.toFixed(0)} · max ${max.toFixed(0)}</span>
+        </span>
+      </div>
+      ${Sparkline({
+        max: scaleMax, hgt, unit: ' ms', fmt: (v) => v.toFixed(1),
+        series: [{ data, color }],
+        refs: [{ value: min, color: C_REF }, { value: max, color: C_REF }],
+      })}
     </div>`;
 }
 
@@ -287,13 +318,16 @@ function NodeCard({ node, hist, expanded, onToggle, onMute, onUnmute, onVolume, 
   const chartsExpanded = html`
     <div class="chart">
       <div class="chart-head"><span>CPU Core 0</span><span class="legend"><b style=${'color:' + C_CPU0}>${node.cpu0}%</b></span></div>
-      ${Sparkline({ max: 100, hgt: 104, series: [{ data: hist.cpu0, color: C_CPU0 }] })}
+      ${Sparkline({ max: 100, hgt: 84, series: [{ data: hist.cpu0, color: C_CPU0 }] })}
     </div>
     <div class="chart">
       <div class="chart-head"><span>CPU Core 1</span><span class="legend"><b style=${'color:' + C_CPU1}>${node.cpu1}%</b></span></div>
-      ${Sparkline({ max: 100, hgt: 104, series: [{ data: hist.cpu1, color: C_CPU1 }] })}
+      ${Sparkline({ max: 100, hgt: 84, series: [{ data: hist.cpu1, color: C_CPU1 }] })}
     </div>
-    ${lossChart(104)}`;
+    ${lossChart(84)}
+    ${DelayChart({ label: 'End-to-end delay', hgt: 84, data: hist.e2e, avg: node.e2e_avg, min: node.e2e_min, max: node.e2e_max, color: C_DELAY_E2E })}
+    ${DelayChart({ label: 'Attack delay', hgt: 84, data: hist.attack, avg: node.attack_avg, min: node.attack_min, max: node.attack_max, color: C_DELAY_ATT })}
+    ${DelayChart({ label: 'Release delay', hgt: 84, data: hist.release, avg: node.release_avg, min: node.release_min, max: node.release_max, color: C_DELAY_REL })}`;
 
   return html`
     <div class=${'card' + (expanded ? ' expanded' : '')} data-id=${node.node_id} onClick=${onToggle}>
@@ -385,11 +419,16 @@ function App() {
         const ids = [];
         list.forEach((n) => {
           ids.push(n.node_id);
-          const e = h[n.node_id] || (h[n.node_id] = { cpu0: [], cpu1: [], loss: [], delivery: [] });
-          e.cpu0.push(n.cpu0); if (e.cpu0.length > MAX_PTS) e.cpu0.shift();
-          e.cpu1.push(n.cpu1); if (e.cpu1.length > MAX_PTS) e.cpu1.shift();
-          e.loss.push(n.packet_loss_rate * 100); if (e.loss.length > MAX_PTS) e.loss.shift();
-          e.delivery.push(n.delivery_ratio * 100); if (e.delivery.length > MAX_PTS) e.delivery.shift();
+          const e = h[n.node_id] || (h[n.node_id] =
+            { cpu0: [], cpu1: [], loss: [], delivery: [], e2e: [], attack: [], release: [] });
+          const push = (arr, v) => { arr.push(v); if (arr.length > MAX_PTS) arr.shift(); };
+          push(e.cpu0, n.cpu0);
+          push(e.cpu1, n.cpu1);
+          push(e.loss, n.packet_loss_rate * 100);
+          push(e.delivery, n.delivery_ratio * 100);
+          push(e.e2e, n.e2e_avg);
+          push(e.attack, n.attack_avg);
+          push(e.release, n.release_avg);
         });
         Object.keys(h).forEach((k) => { if (ids.indexOf(+k) === -1) delete h[k]; });
         setNodes(list);
@@ -458,7 +497,7 @@ function App() {
               ${nodes.map((n) => html`<${NodeCard}
                 key=${n.node_id}
                 node=${n}
-                hist=${histRef.current[n.node_id] || { cpu0: [], cpu1: [], loss: [], delivery: [] }}
+                hist=${histRef.current[n.node_id] || { cpu0: [], cpu1: [], loss: [], delivery: [], e2e: [], attack: [], release: [] }}
                 expanded=${expandedId === n.node_id}
                 onToggle=${() => toggle(n.node_id)}
                 onMute=${(id) => act(() => api.mute(id))}
