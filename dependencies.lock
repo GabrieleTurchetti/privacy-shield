@@ -10,7 +10,7 @@ dependencies:
       type: service
     version: 1.7.19~2
   espressif/dl_fft:
-    component_hash: ced3cf28cc70452b7859c06f4e5059215167254a2047e34c893d6f501ccd6ea2
+    component_hash: a955ca29581de2177ddf25759273bd83f082b3c805e735fe6ee105858643989b
     dependencies:
     - name: idf
       require: private
@@ -18,7 +18,7 @@ dependencies:
     source:
       registry_url: https://components.espressif.com
       type: service
-    version: 0.4.0
+    version: 0.6.0
   espressif/esp-dsp:
     component_hash: 12e44db246517a627bc0fe2b255b8335410c0215c98bfba2df5a8e3edea839ef
     dependencies:
@@ -51,12 +51,23 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 2.4.6
+  espressif/mdns:
+    component_hash: e81ca7a7f53ea34e78274df054da692c272e1315572876b237b1748e267c013b
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.11.3
   idf:
     source:
       type: idf
     version: 5.5.4
 direct_dependencies:
 - espressif/esp-sr
-manifest_hash: 7109d7e30e2f43cac4cbfa2a58c1662915876f62e6e9bb87b4b775d9508986f4
+- espressif/mdns
+manifest_hash: 49c375e754e17c2d17bf3cc2134f482e857a5d6f389a0a6c621b214e9d5547a0
 target: esp32s3
 version: 2.0.0
