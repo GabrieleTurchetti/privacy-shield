@@ -267,6 +267,8 @@ void audio_afe_feed(void *pvParameters) {
 
 	// Inital values for speaker buffer for purposes of AEC
 	const int expected_samples = afe_feed_chunksize();
+	int16_t zero_ref_sample[AFE_DATA_BUFFER_SIZE];
+	memset(zero_ref_sample, 0, sizeof(zero_ref_sample));
 	audio_packet_t *packet = NULL;
 	while (1) {
 		if (xQueueReceive(audio_input_queue, &packet, portMAX_DELAY) ==
@@ -288,19 +290,21 @@ void audio_afe_feed(void *pvParameters) {
 				} else {
 					int ret = 0;
 					if (valid_speaker) {
-						int offset =
-							speaker_buffer_counter - speaker_buffer_offset;
-						if (offset < 0) {
-							offset += 6;
-						}
+						int offset = find_best_reference_frame(
+							packet->audio_sample, packet->sample_size);
 						/**
 						 * Interweaving the Speaker sample witht hhe microphone
 						 * for AEC purposes as required when necessarry
 						 * */
 						for (int i = 0; i < expected_samples; i++) {
 							feed_buffer[2 * i] = packet->audio_sample[i];
+							if (offset != -1) {
 
-							feed_buffer[2 * i + 1] = speaker_buffer[offset][i];
+								feed_buffer[2 * i + 1] =
+									speaker_buffer[offset][i];
+							} else {
+								feed_buffer[2 * i + 1] = zero_ref_sample[i];
+							}
 						}
 
 						ret = afe_handle->feed(afe_data, feed_buffer);
