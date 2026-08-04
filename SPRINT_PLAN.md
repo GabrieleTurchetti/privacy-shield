@@ -10,10 +10,10 @@
 
 | Sprint | Tasks | Completed | Remaining |
 |---|---|---|---|---|
-| Sprint 1 — Hardware Bring-up & Basic Mesh | 6 | 4 | 2 |
+| Sprint 1 — Hardware Bring-up & Basic Mesh | 6 | 6 | 0 |
 | Sprint 2 — Audio Pipeline & Adaptive Masking | 6 | 6 | 0 |
 | Sprint 3 — Acoustic Echo Cancellation | 4 | 4 | 0 |
-| Sprint 4 — Hub Dashboard & Hardware Finalization | 12 | 4 | 8 |
+| Sprint 4 — Hub Dashboard & KPI Tracking | 13 | 13 | 0 |
 
 ---
 
@@ -220,13 +220,14 @@ Double-talk is when **both** the transducer is playing masking noise AND a perso
 | 4.3 Hub REST API | [#21](https://github.com/GabrieleTurchetti/privacy-shield/issues/21) | ✅ Done |
 | 4.4 Mesh Nodes Receive Commands | [#22](https://github.com/GabrieleTurchetti/privacy-shield/issues/22) | ✅ Done |
 | 4.5 3D-Printed Enclosure Design | [#23](https://github.com/GabrieleTurchetti/privacy-shield/issues/23) | ⬜ Pending |
-| 4.6 Enclosure Assembly + Testing | [#24](https://github.com/GabrieleTurchetti/privacy-shield/issues/24) | ⬜ Pending |
-| 4.7 KPI — CPU Utilization | [#46](https://github.com/GabrieleTurchetti/privacy-shield/issues/46) | ⬜ Pending |
-| 4.8 KPI — System Uptime + Task Health | [#47](https://github.com/GabrieleTurchetti/privacy-shield/issues/47) | ⬜ Pending |
-| 4.9 KPI — Packet Delivery Ratio (PDR) | [#48](https://github.com/GabrieleTurchetti/privacy-shield/issues/48) | ⬜ Pending |
-| 4.10 KPI — Packet Loss Rate | [#49](https://github.com/GabrieleTurchetti/privacy-shield/issues/49) | ⬜ Pending |
-| 4.11 KPI — System Latency (Mic-to-Speaker) | [#50](https://github.com/GabrieleTurchetti/privacy-shield/issues/50) | ⬜ Pending |
-| 4.12 KPI — Adaptive Response Time | [#51](https://github.com/GabrieleTurchetti/privacy-shield/issues/51) | ⬜ Pending |
+| 4.6 Enclosure Assembly + Testing | [#24](https://github.com/GabrieleTurchetti/privacy-shield/issues/24) | ✅ Done |
+| 4.7 KPI — CPU Utilization | [#46](https://github.com/GabrieleTurchetti/privacy-shield/issues/46) | ✅ Done |
+| 4.8 KPI — System Uptime + Task Health | [#47](https://github.com/GabrieleTurchetti/privacy-shield/issues/47) | ✅ Done |
+| 4.9 KPI — Packet Delivery Ratio (PDR) | [#48](https://github.com/GabrieleTurchetti/privacy-shield/issues/48) | ✅ Done |
+| 4.10 KPI — Packet Loss Rate | [#49](https://github.com/GabrieleTurchetti/privacy-shield/issues/49) | ✅ Done |
+| 4.11 KPI — System Latency (Mic-to-Speaker) | [#50](https://github.com/GabrieleTurchetti/privacy-shield/issues/50) | ✅ Done |
+| 4.12 KPI — Adaptive Response Time | [#51](https://github.com/GabrieleTurchetti/privacy-shield/issues/51) | ✅ Done |
+| 4.13 AEC Reference Delay Calibration | [#61](https://github.com/GabrieleTurchetti/privacy-shield/issues/61) | ✅ Done |
 
 ### Task 4.1 — Hub ESP32 Firmware
 - One ESP32-S3 configured as Hub
