@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 840" role="img">
+<title>Dashboard &amp; Backend Architecture</title>
+<defs>
+<filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="#0f172a" flood-opacity="0.09"/></filter>
+<marker id="mb" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#2563EB"/></marker>
+<marker id="mg" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="mt" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#0D9488"/></marker>
+</defs>
+<style>
+text{font-family:Inter,'Segoe UI',Helvetica,Arial,sans-serif}
+.tt{font-size:29px;font-weight:800;fill:#0F172A}.sub{font-size:14.5px;fill:#64748B}
+.h{font-size:16px;font-weight:800;fill:#0F172A}.sh{font-size:13.5px;font-weight:700;fill:#0F172A}
+.s{font-size:12px;fill:#64748B}.lab{font-size:12px;font-weight:700}
+.mono{font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;font-size:11.5px;fill:#0F172A}
+.monos{font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;font-size:11px;fill:#475569}
+.ico{fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+</style>
+<rect x="0" y="0" width="1400" height="840" fill="#EEF2F7"/>
+<rect x="24" y="24" width="1352" height="792" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+<text x="56" y="70" class="tt">Dashboard &amp; Backend Architecture</text>
+<text x="56" y="96" class="sub">Browser ↔ HTTP/REST ↔ ESP32-S3 Hub (Wi-Fi AP + ESP-NOW) ↔ masking nodes · no cloud, no app</text>
+
+<!-- ============ TIER 1: CLIENT ============ -->
+<g filter="url(#sh)"><rect x="80" y="120" width="1240" height="150" rx="16" fill="#EFF6FF" stroke="#93C5FD" stroke-width="2"/></g>
+<rect x="80" y="120" width="1240" height="34" rx="16" fill="#DBEAFE"/>
+<text x="104" y="143" class="h" fill="#1D4ED8">CLIENT · Browser Dashboard</text>
+<text x="1296" y="143" text-anchor="end" class="monos" fill="#1D4ED8">served from hub flash · auto-refresh ~2 s</text>
+<!-- phone + laptop -->
+<g transform="translate(110,176)" stroke="#2563EB" class="ico"><rect x="0" y="0" width="40" height="66" rx="7"/><rect x="7" y="9" width="26" height="40" rx="2" fill="#DBEAFE" stroke="none"/><circle cx="20" cy="57" r="3"/></g>
+<text x="130" y="258" text-anchor="middle" class="s">Phone</text>
+<g transform="translate(178,182)" stroke="#2563EB" class="ico"><rect x="0" y="0" width="64" height="42" rx="5"/><rect x="7" y="6" width="50" height="30" rx="2" fill="#DBEAFE" stroke="none"/><path d="M-6,50 L70,50 L64,42 L0,42 Z"/></g>
+<text x="210" y="258" text-anchor="middle" class="s">Laptop · Chrome</text>
+<!-- endpoints -->
+<text x="300" y="180" class="sh">REST endpoints (fetch)</text>
+<text x="300" y="202" class="mono">GET  /api/nodes                     → JSON node list (poll)</text>
+<text x="300" y="222" class="mono">POST /api/node/mute?id  ·  /unmute?id  ·  /volume?level&amp;id</text>
+<text x="300" y="242" class="mono">POST /api/node/unlock  ·  /reboot   ·   /api/global/mute · /unmute</text>
+
+<!-- link client<->hub -->
+<path d="M470,270 L470,352" fill="none" stroke="#2563EB" stroke-width="2.6" marker-end="url(#mb)"/>
+<text x="486" y="300" class="lab" fill="#2563EB">HTTP POST</text>
+<text x="486" y="316" class="s">control commands ↓</text>
+<path d="M940,352 L940,270" fill="none" stroke="#059669" stroke-width="2.6" marker-end="url(#mg)"/>
+<text x="924" y="300" text-anchor="end" class="lab" fill="#059669">HTTP GET</text>
+<text x="924" y="316" text-anchor="end" class="s">↑ telemetry (JSON)</text>
+<text x="700" y="300" text-anchor="middle" class="monos" fill="#94A3B8">Wi-Fi SoftAP “PrivacyShield” · http://192.168.4.1</text>
+
+<!-- ============ TIER 2: HUB BACKEND ============ -->
+<g filter="url(#sh)"><rect x="80" y="352" width="1240" height="248" rx="16" fill="#F5F3FF" stroke="#A78BFA" stroke-width="2"/></g>
+<rect x="80" y="352" width="1240" height="34" rx="16" fill="#EDE9FE"/>
+<g transform="translate(104,360)" stroke="#7C3AED" class="ico"><path d="M0,16 a16,16 0 0 1 27,0"/><path d="M5,21 a10,10 0 0 1 18,0"/><circle cx="14" cy="27" r="2.2" fill="#7C3AED" stroke="none"/></g>
+<text x="140" y="375" class="h" fill="#5B21B6">ESP32-S3 HUB — backend (Wi-Fi AP + ESP-NOW, FreeRTOS)</text>
+
+<!-- sub A: web_server -->
+<rect x="104" y="404" width="376" height="176" rx="12" fill="#FFFFFF" stroke="#C4B5FD" stroke-width="1.6"/>
+<text x="124" y="430" class="sh" fill="#5B21B6">web_server.c</text>
+<text x="124" y="452" class="s">esp_http_server (port 80)</text>
+<text x="124" y="472" class="s">wildcard URI routing</text>
+<text x="124" y="494" class="mono">"/"          → dashboard HTML</text>
+<text x="124" y="514" class="mono">"/api/nodes" → GET handler</text>
+<text x="124" y="534" class="mono">"/api/node/*"→ POST handlers</text>
+<text x="124" y="558" class="s">also runs wifi_ap_init()</text>
+
+<!-- sub B: web_api -->
+<rect x="512" y="404" width="376" height="176" rx="12" fill="#FFFFFF" stroke="#C4B5FD" stroke-width="1.6"/>
+<text x="532" y="430" class="sh" fill="#5B21B6">web_api.c</text>
+<text x="532" y="452" class="s">request handlers · parse id / level</text>
+<text x="532" y="474" class="mono">s_node_cache[] </text><text x="648" y="474" class="s">(last STATUS per node)</text>
+<text x="532" y="494" class="mono">json_append_nodes() → JSON</text>
+<text x="532" y="514" class="mono">send_command_to_node()</text>
+<text x="532" y="534" class="s">builds mesh_command_pkt_t</text>
+<text x="532" y="558" class="mono">web_dashboard_update_status()</text>
+
+<!-- sub C: mesh_core -->
+<rect x="920" y="404" width="376" height="176" rx="12" fill="#FFFFFF" stroke="#C4B5FD" stroke-width="1.6"/>
+<text x="940" y="430" class="sh" fill="#5B21B6">mesh_core</text>
+<text x="940" y="452" class="mono">esp_now_link.c</text><text x="1052" y="452" class="s">send / recv / peers</text>
+<text x="940" y="472" class="mono">node_discovery.c</text><text x="1064" y="472" class="s">neighbor table</text>
+<text x="940" y="492" class="mono">delivery_ratio.c</text><text x="1060" y="492" class="s">PDR / loss</text>
+<text x="940" y="516" class="s">COMMAND → unicast (add peer)</text>
+<text x="940" y="536" class="s">STATUS/HELLO/ACK ← recv cb</text>
+<text x="940" y="558" class="s">ack_task · status callback</text>
+
+<!-- internal arrows A->B->C -->
+<path d="M480,492 L512,492" fill="none" stroke="#7C3AED" stroke-width="2" marker-end="url(#mb)" opacity="0.0"/>
+<path d="M480,492 L512,492" fill="none" stroke="#7C3AED" stroke-width="2"/>
+<path d="M888,492 L920,492" fill="none" stroke="#7C3AED" stroke-width="2"/>
+<polygon points="512,492 504,488 504,496" fill="#7C3AED"/>
+<polygon points="920,492 912,488 912,496" fill="#7C3AED"/>
+
+<!-- link hub<->nodes -->
+<path d="M470,600 L470,660" fill="none" stroke="#0D9488" stroke-width="2.6" stroke-dasharray="7 5" marker-end="url(#mt)"/>
+<text x="486" y="632" class="lab" fill="#0D9488">ESP-NOW</text>
+<text x="486" y="648" class="s">COMMAND · unicast ↓</text>
+<path d="M940,660 L940,600" fill="none" stroke="#0D9488" stroke-width="2.6" stroke-dasharray="7 5" marker-end="url(#mt)"/>
+<text x="924" y="632" text-anchor="end" class="lab" fill="#0D9488">ESP-NOW</text>
+<text x="924" y="648" text-anchor="end" class="s">↑ STATUS · broadcast (+ACK)</text>
+
+<!-- ============ TIER 3: NODES ============ -->
+<g filter="url(#sh)"><rect x="300" y="662" width="240" height="130" rx="14" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="2"/></g>
+<g transform="translate(322,686)" stroke="#059669" class="ico"><rect x="0" y="4" width="24" height="24" rx="4"/><line x1="6" y1="0" x2="6" y2="4"/><line x1="12" y1="0" x2="12" y2="4"/><line x1="18" y1="0" x2="18" y2="4"/><line x1="6" y1="28" x2="6" y2="32"/><line x1="12" y1="28" x2="12" y2="32"/><line x1="18" y1="28" x2="18" y2="32"/><circle cx="12" cy="16" r="4.5"/></g>
+<text x="356" y="702" class="sh" fill="#065F46">Masking Node</text>
+<text x="322" y="732" class="s">STA · applies mute/volume</text>
+<text x="322" y="752" class="s">status_task → STATUS</text>
+<text x="322" y="772" class="s">sends ACK for each STATUS</text>
+
+<g filter="url(#sh)"><rect x="580" y="662" width="240" height="130" rx="14" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="2"/></g>
+<g transform="translate(602,686)" stroke="#059669" class="ico"><rect x="0" y="4" width="24" height="24" rx="4"/><line x1="6" y1="0" x2="6" y2="4"/><line x1="12" y1="0" x2="12" y2="4"/><line x1="18" y1="0" x2="18" y2="4"/><line x1="6" y1="28" x2="6" y2="32"/><line x1="12" y1="28" x2="12" y2="32"/><line x1="18" y1="28" x2="18" y2="32"/><circle cx="12" cy="16" r="4.5"/></g>
+<text x="636" y="702" class="sh" fill="#065F46">Masking Node</text>
+<text x="602" y="732" class="s">STA · applies mute/volume</text>
+<text x="602" y="752" class="s">status_task → STATUS</text>
+<text x="602" y="772" class="s">sends ACK for each STATUS</text>
+
+<g filter="url(#sh)"><rect x="860" y="662" width="240" height="130" rx="14" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="2"/></g>
+<g transform="translate(882,686)" stroke="#059669" class="ico"><rect x="0" y="4" width="24" height="24" rx="4"/><line x1="6" y1="0" x2="6" y2="4"/><line x1="12" y1="0" x2="12" y2="4"/><line x1="18" y1="0" x2="18" y2="4"/><line x1="6" y1="28" x2="6" y2="32"/><line x1="12" y1="28" x2="12" y2="32"/><line x1="18" y1="28" x2="18" y2="32"/><circle cx="12" cy="16" r="4.5"/></g>
+<text x="916" y="702" class="sh" fill="#065F46">Masking Node</text>
+<text x="882" y="732" class="s">STA · applies mute/volume</text>
+<text x="882" y="752" class="s">status_task → STATUS</text>
+<text x="882" y="772" class="s">sends ACK for each STATUS</text>
+
+<text x="1130" y="732" class="s" fill="#94A3B8">… up to</text>
+<text x="1130" y="752" class="mono" fill="#475569">MESH_MAX_NEIGHBORS</text>
+</svg>

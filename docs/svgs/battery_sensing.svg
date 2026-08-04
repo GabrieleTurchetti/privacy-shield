@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 594" role="img">
+<title>Battery Sensing — Voltage Divider &amp; Equations</title>
+<defs><filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="#0f172a" flood-opacity="0.09"/></filter></defs>
+<style>text{font-family:Inter,'Segoe UI',Helvetica,Arial,sans-serif}.tt{font-size:29px;font-weight:800;fill:#0F172A}.sub{font-size:14.5px;fill:#64748B}.h{font-size:17px;font-weight:700;fill:#0F172A}.s{font-size:13px;fill:#64748B}.eq{font-family:Georgia,'Times New Roman',serif;font-size:31px;fill:#0F172A}.mono{font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;font-size:12.5px;fill:#0F172A}.sc{font-size:13px;fill:#64748B;font-weight:600}.ico{fill:none;stroke:#334155;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}</style>
+<rect x="0" y="0" width="1400" height="594" fill="#EEF2F7"/>
+<rect x="24" y="24" width="1352" height="546" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+<g transform="translate(0,-80)">
+<line x1="250" y1="156" x2="250" y2="190" stroke="#334155" stroke-width="2.2"/>
+<line x1="224" y1="144" x2="276" y2="144" stroke="#334155" stroke-width="3.4"/>
+<line x1="236" y1="156" x2="264" y2="156" stroke="#334155" stroke-width="6"/>
+<line x1="250" y1="126" x2="250" y2="144" stroke="#334155" stroke-width="2.2"/>
+<text x="290" y="144" class="mono" fill="#0F172A">+3.7 V Li-ion</text>
+<polyline points="250.0,196.0 258.0,203.5 242.0,218.5 258.0,233.5 242.0,248.5 258.0,263.5 242.0,278.5 250.0,286.0" fill="none" stroke="#334155" stroke-width="2.2"/>
+<text x="278" y="245" class="mono">R1 · 100 kΩ</text>
+<line x1="250" y1="286" x2="250" y2="330" stroke="#334155" stroke-width="2.2"/>
+<circle cx="250" cy="330" r="4.5" fill="#334155"/>
+<line x1="250" y1="330" x2="384" y2="330" stroke="#334155" stroke-width="2.2"/>
+<line x1="316" y1="330" x2="316" y2="372" stroke="#94A3B8" stroke-width="1.6" stroke-dasharray="4 4"/>
+<line x1="308" y1="372" x2="324" y2="372" stroke="#94A3B8" stroke-width="2"/>
+<line x1="311" y1="378" x2="321" y2="378" stroke="#94A3B8" stroke-width="2"/>
+<line x1="316" y1="378" x2="316" y2="392" stroke="#94A3B8" stroke-width="1.6"/>
+<line x1="300" y1="392" x2="332" y2="392" stroke="#94A3B8" stroke-width="1.6"/>
+<line x1="308" y1="398" x2="324" y2="398" stroke="#94A3B8" stroke-width="1.6"/>
+<line x1="313" y1="402" x2="319" y2="402" stroke="#94A3B8" stroke-width="1.6"/>
+<text x="342" y="382" class="s" fill="#94A3B8">100 nF (recommended,</text>
+<text x="342" y="398" class="s" fill="#94A3B8">lowers ADC source impedance)</text>
+<g filter="url(#sh)"><rect x="384" y="302" width="196" height="56" rx="10" fill="#EFF6FF" stroke="#93C5FD" stroke-width="2"/></g>
+<text x="482" y="326" text-anchor="middle" class="mono" font-weight="700" fill="#1D4ED8">ESP32-S3 · ADC1</text>
+<text x="482" y="346" text-anchor="middle" class="mono" fill="#1D4ED8">ADC1_CH0 = GPIO1</text>
+<line x1="250" y1="330" x2="250" y2="376" stroke="#334155" stroke-width="2.2"/>
+<polyline points="250.0,376.0 258.0,383.5 242.0,398.5 258.0,413.5 242.0,428.5 258.0,443.5 242.0,458.5 250.0,466.0" fill="none" stroke="#334155" stroke-width="2.2"/>
+<text x="278" y="425" class="mono">R2 · 100 kΩ</text>
+<line x1="250" y1="466" x2="250" y2="520" stroke="#334155" stroke-width="2.2"/>
+<line x1="226" y1="520" x2="274" y2="520" stroke="#334155" stroke-width="2.6"/>
+<line x1="235" y1="528" x2="265" y2="528" stroke="#334155" stroke-width="2.6"/>
+<line x1="243" y1="536" x2="257" y2="536" stroke="#334155" stroke-width="2.6"/>
+<text x="290" y="526" class="mono">GND</text>
+<text x="80" y="588" class="sc" fill="#059669">ADC1 used on purpose — ADC2 conflicts with active Wi-Fi / ESP-NOW.</text>
+<g filter="url(#sh)"><rect x="640" y="142" width="712" height="150" rx="16" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5"/></g>
+<text x="674" y="182" class="h" fill="#1D4ED8">Voltage Divider Equation</text>
+<text x="674" y="234" class="eq"><tspan dy="0" font-size="31">V</tspan><tspan dy="8" font-size="19">pin</tspan><tspan dy="-8" font-size="31"> = V</tspan><tspan dy="8" font-size="19">real</tspan><tspan dy="-8" font-size="31"> × R</tspan><tspan dy="8" font-size="19">2</tspan><tspan dy="-8" font-size="31"> / (R</tspan><tspan dy="8" font-size="19">1</tspan><tspan dy="-8" font-size="31"> + R</tspan><tspan dy="8" font-size="19">2</tspan><tspan dy="-8" font-size="31">)</tspan></text>
+<text x="674" y="268" class="s">R1 = R2 = 100 kΩ → Vpin = Vreal / 2; firmware recovers Vreal = Vpin × 2</text>
+<g filter="url(#sh)"><rect x="640" y="308" width="712" height="150" rx="16" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5"/></g>
+<text x="674" y="348" class="h" fill="#1D4ED8">Power Dissipation (divider)</text>
+<text x="674" y="400" class="eq"><tspan dy="0" font-size="31">P = V</tspan><tspan dy="-12" font-size="19">2</tspan><tspan dy="12" font-size="31"> / (R</tspan><tspan dy="8" font-size="19">1</tspan><tspan dy="-8" font-size="31"> + R</tspan><tspan dy="8" font-size="19">2</tspan><tspan dy="-8" font-size="31">)</tspan></text>
+<text x="674" y="434" class="s">V = 3.7 V, R1 = R2 = 100 kΩ → P = 3.7² / 200 kΩ = 13.69 / 200 000 ≈ 68 µW (continuous)</text>
+<g filter="url(#sh)"><rect x="640" y="474" width="712" height="150" rx="16" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5"/></g>
+<text x="674" y="514" class="h" fill="#1D4ED8">Low-Pass Filter — Cutoff Frequency</text>
+<text x="674" y="558" class="eq"><tspan font-size="31">f =</tspan></text>
+<line x1="748" y1="551" x2="856" y2="551" stroke="#0F172A" stroke-width="2"/>
+<text x="802" y="543" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-size="25" fill="#0F172A">1</text>
+<text x="802" y="573" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-size="24" fill="#0F172A">2πRC</text>
+<text x="674" y="600" class="s">R = R1 ∥ R2 = 50 kΩ, C = 100 nF  →  f ≈ 31.8 Hz</text>
+</g>
+</svg>

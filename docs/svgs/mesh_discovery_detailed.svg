@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1460 596" role="img">
+<title>Node Discovery — detailed</title>
+<defs>
+<filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="#0f172a" flood-opacity="0.09"/></filter>
+<marker id="mg" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#059669"/></marker>
+<marker id="ms" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#475569"/></marker>
+<marker id="mgy" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#94A3B8"/></marker>
+</defs>
+<style>
+text{font-family:Inter,'Segoe UI',Helvetica,Arial,sans-serif}
+.tt{font-size:27px;font-weight:800;fill:#0F172A}.sub{font-size:14px;fill:#64748B}
+.h{font-size:15px;font-weight:800;fill:#0F172A}.p{font-size:12px;fill:#475569}
+.lab{font-size:11px;font-weight:700}.tag{font-size:10.5px;font-weight:700;fill:#94A3B8}
+.mono{font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;font-size:11px;fill:#0F172A}
+.monos{font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;font-size:10.5px;fill:#64748B}
+.ico{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.dtxt{font-size:12px;font-weight:700;fill:#334155}
+</style>
+<rect x="0" y="0" width="1460" height="596" fill="#EEF2F7"/>
+<rect x="24" y="24" width="1412" height="548" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+<text x="56" y="66" class="tt">Node Discovery — HELLO &amp; Neighbor Table</text>
+<text x="56" y="92" class="sub">Every received packet refreshes the sender's entry; neighbors not heard for 30 s are pruned</text>
+
+<!-- ===== LEFT: broadcast ===== -->
+<g filter="url(#sh)"><rect x="48" y="122" width="380" height="404" rx="14" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="2"/></g>
+<text x="72" y="152" class="h" fill="#065F46">HELLO broadcast</text>
+<text x="72" y="176" class="p">hello_task fires every 3 s and</text>
+<text x="72" y="193" class="p">sends to the broadcast MAC —</text>
+<text x="72" y="210" class="p">every node on the channel hears it.</text>
+<!-- sender -->
+<g transform="translate(84,250)" stroke="#059669" class="ico"><rect x="0" y="4" width="26" height="26" rx="4"/><line x1="6" y1="0" x2="6" y2="4"/><line x1="13" y1="0" x2="13" y2="4"/><line x1="20" y1="0" x2="20" y2="4"/><line x1="6" y1="30" x2="6" y2="34"/><line x1="13" y1="30" x2="13" y2="34"/><line x1="20" y1="30" x2="20" y2="34"/><circle cx="13" cy="17" r="5"/></g>
+<text x="84" y="310" class="mono" fill="#065F46">Node</text>
+<!-- broadcast dashed arrows to 3 receivers -->
+<path d="M124,258 C210,240 250,222 330,214" fill="none" stroke="#059669" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#mg)"/>
+<path d="M126,268 L330,268" fill="none" stroke="#059669" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#mg)"/>
+<path d="M124,280 C210,300 250,314 330,322" fill="none" stroke="#059669" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#mg)"/>
+<text x="72" y="340" class="monos" fill="#059669">→ FF:FF:FF:FF:FF:FF  (broadcast MAC)</text>
+<circle cx="346" cy="212" r="7" fill="#D1FAE5" stroke="#059669" stroke-width="2"/><text x="360" y="216" class="monos">N2</text>
+<circle cx="346" cy="268" r="7" fill="#D1FAE5" stroke="#059669" stroke-width="2"/><text x="360" y="272" class="monos">N3</text>
+<circle cx="346" cy="324" r="7" fill="#D1FAE5" stroke="#059669" stroke-width="2"/><text x="360" y="328" class="monos">N4</text>
+<!-- packet note -->
+<rect x="72" y="356" width="332" height="52" rx="8" fill="#DCFCE7" stroke="#6EE7B7" stroke-width="1.2"/>
+<text x="86" y="378" class="mono" fill="#065F46">HELLO = 6-byte header only</text>
+<text x="86" y="396" class="monos" fill="#065F46">type · src_id · timestamp_ms   (no payload)</text>
+<!-- any packet note -->
+<text x="72" y="440" class="p" font-weight="700" fill="#065F46">The table isn't HELLO-only:</text>
+<text x="72" y="460" class="p">every received packet — HELLO,</text>
+<text x="72" y="477" class="p">STATUS, COMMAND, ACK — calls</text>
+<text x="72" y="494" class="mono" fill="#065F46">mesh_discovery_heard(mac, id)</text>
+
+<!-- ===== CENTER: decision flow ===== -->
+<text x="470" y="150" class="h">On mesh_discovery_heard(mac, id):</text>
+<!-- start -->
+<rect x="486" y="166" width="240" height="40" rx="8" fill="#F1F5F9" stroke="#CBD5E1" stroke-width="1.6"/>
+<text x="606" y="191" text-anchor="middle" class="mono">packet arrives from MAC M</text>
+<line x1="606" y1="206" x2="606" y2="228" stroke="#475569" stroke-width="2" marker-end="url(#ms)"/>
+<!-- D1 -->
+<polygon points="606,230 726,278 606,326 486,278" fill="#FFFFFF" stroke="#475569" stroke-width="1.8"/>
+<text x="606" y="274" text-anchor="middle" class="dtxt">is M already</text>
+<text x="606" y="290" text-anchor="middle" class="dtxt">in the table?</text>
+<!-- D1 yes -> refresh -->
+<line x1="726" y1="278" x2="792" y2="278" stroke="#059669" stroke-width="2" marker-end="url(#mg)"/>
+<text x="748" y="270" class="lab" fill="#059669">yes</text>
+<g filter="url(#sh)"><rect x="792" y="252" width="222" height="52" rx="10" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="1.8"/></g>
+<text x="806" y="274" class="mono" fill="#065F46">refresh last_heard</text>
+<text x="806" y="292" class="monos" fill="#065F46">(and node_id)</text>
+<!-- D1 no -> D2 -->
+<line x1="606" y1="326" x2="606" y2="352" stroke="#475569" stroke-width="2" marker-end="url(#ms)"/>
+<text x="618" y="344" class="lab" fill="#475569">no</text>
+<!-- D2 -->
+<polygon points="606,354 720,400 606,446 492,400" fill="#FFFFFF" stroke="#475569" stroke-width="1.8"/>
+<text x="606" y="396" text-anchor="middle" class="dtxt">is there a</text>
+<text x="606" y="412" text-anchor="middle" class="dtxt">free slot?</text>
+<!-- D2 yes -> insert -->
+<line x1="720" y1="400" x2="792" y2="400" stroke="#2563EB" stroke-width="2" marker-end="url(#mgy)"/>
+<text x="748" y="392" class="lab" fill="#2563EB">yes</text>
+<g filter="url(#sh)"><rect x="792" y="374" width="222" height="52" rx="10" fill="#EFF6FF" stroke="#93C5FD" stroke-width="1.8"/></g>
+<text x="806" y="396" class="mono" fill="#1D4ED8">insert new neighbor</text>
+<text x="806" y="414" class="monos" fill="#1D4ED8">active = true · log "New"</text>
+<!-- D2 no -> evict -->
+<line x1="606" y1="446" x2="606" y2="474" stroke="#475569" stroke-width="2" marker-end="url(#ms)"/>
+<text x="618" y="466" class="lab" fill="#475569">no (16 full)</text>
+<g filter="url(#sh)"><rect x="486" y="476" width="330" height="56" rx="10" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.8"/></g>
+<text x="500" y="500" class="mono" fill="#92400E">evict oldest entry (min last_heard)</text>
+<text x="500" y="518" class="monos" fill="#92400E">overwrite with M · log "table full — replacing"</text>
+
+<!-- ===== RIGHT: table + timing ===== -->
+<g filter="url(#sh)"><rect x="1046" y="122" width="366" height="270" rx="14" fill="#F5F3FF" stroke="#A78BFA" stroke-width="2"/></g>
+<text x="1070" y="150" class="h" fill="#5B21B6">Neighbor Table</text>
+<text x="1070" y="170" class="monos">mesh_state.neighbors[16]</text>
+<rect x="1066" y="182" width="326" height="26" rx="6" fill="#EDE9FE"/>
+<text x="1078" y="200" class="tag" fill="#5B21B6">MAC</text><text x="1250" y="200" class="tag" fill="#5B21B6">id</text><text x="1300" y="200" class="tag" fill="#5B21B6">last_heard</text>
+<text x="1078" y="236" class="mono">a4:cf:12:aa:00:02</text><text x="1254" y="236" class="mono">2</text><text x="1300" y="236" class="mono" fill="#059669">1 s</text>
+<line x1="1066" y1="248" x2="1392" y2="248" stroke="#EDE9FE" stroke-width="1.2"/>
+<text x="1078" y="272" class="mono">a4:cf:12:aa:00:03</text><text x="1254" y="272" class="mono">3</text><text x="1300" y="272" class="mono" fill="#059669">4 s</text>
+<line x1="1066" y1="284" x2="1392" y2="284" stroke="#EDE9FE" stroke-width="1.2"/>
+<text x="1078" y="308" class="mono">a4:cf:12:aa:00:07</text><text x="1254" y="308" class="mono">7</text><text x="1300" y="308" class="mono" fill="#DC2626">31 s ✗</text>
+<line x1="1066" y1="320" x2="1392" y2="320" stroke="#EDE9FE" stroke-width="1.2"/>
+<text x="1078" y="352" class="monos" fill="#94A3B8">MESH_MAX_NEIGHBORS = 16 slots</text>
+<text x="1078" y="374" class="monos" fill="#94A3B8">keyed by MAC · protected by mesh mutex</text>
+
+<!-- timing / prune -->
+<g filter="url(#sh)"><rect x="1046" y="406" width="366" height="150" rx="14" fill="#FFF7ED" stroke="#FDBA74" stroke-width="2"/></g>
+<g transform="translate(1070,424)" stroke="#B45309" class="ico"><circle cx="11" cy="11" r="10"/><line x1="11" y1="5" x2="11" y2="11"/><line x1="11" y1="11" x2="16" y2="14"/></g>
+<text x="1102" y="435" dominant-baseline="central" class="h" fill="#92400E">prune_task — every 10 s</text>
+<text x="1070" y="470" class="p">Drops any neighbor with</text>
+<text x="1070" y="488" class="mono" fill="#92400E">now − last_heard &gt; 30 000 ms</text>
+<text x="1070" y="514" class="p">→ a silent node disappears after</text>
+<text x="1070" y="534" class="p" font-weight="700">30–40 s (≈ 10 missed HELLOs).</text>
+
+</svg>

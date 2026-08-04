@@ -1,17 +1,23 @@
 #include "afe.h"
 #include "audio_hal.h" // For function signatures
 #include "driver/i2s_std.h"
+#include "esp_err.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/projdefs.h"
 #include "freertos/task.h"
 #include "global_config.h" // For pin configurations
 #include "log_tags.h"
 #include <math.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 
 static const char *TAG = LOG_TAG_AUDIO_AMP;
 static i2s_chan_handle_t tx_chan;
 extern QueueHandle_t audio_output_queue;
+static uint16_t min_delay = 9999, max_delay = 0, counter = 0, avg_delay[1000];
 
 void audio_hal_speaker_init(void) {
 	ESP_LOGI(TAG, "Initializing I2S TX for MAX98357A...");
@@ -48,16 +54,69 @@ void audio_hal_speaker_init(void) {
 	ESP_LOGI(TAG, "Amplifier ready to use.");
 }
 
+static void update_delays(int16_t timestamp) {
+
+	avg_delay[counter] = timestamp;
+
+	if (avg_delay[counter] > max_delay) {
+		max_delay = avg_delay[counter];
+	}
+	if (avg_delay[counter] < min_delay) {
+		min_delay = avg_delay[counter];
+	}
+	counter++;
+	if (counter >= 1000) {
+		counter = 0;
+	}
+}
+
+double get_avg_delay() {
+	double sum = 0.0;
+	int counter = 0;
+	for (int i = 0; i < 1000; i++) {
+		if (avg_delay[i] != 0) {
+			sum += (double)avg_delay[i];
+			counter++;
+		}
+	}
+	return (sum / counter);
+}
+
+double get_max_delay() { return (double)max_delay; }
+
+double get_min_delay() { return (double)min_delay; }
+
 void audio_hal_speaker_task(void *pvParameters) {
-	int16_t buffer[AFE_FEED_SAMPLES];
-	size_t bytes_written;
+
+	size_t bytes_written = 0;
+	audio_packet_t *packet = NULL;
 
 	while (1) {
-		xQueueReceive(audio_output_queue, buffer, portMAX_DELAY);
-		// buffer is already scaled — volume was applied by the AFE task
+		if (xQueueReceive(audio_output_queue, &packet, portMAX_DELAY) !=
+			pdTRUE) {
+			continue;
+		}
 
-		i2s_channel_write(tx_chan, buffer, AFE_FEED_SAMPLES * sizeof(int16_t),
-						  &bytes_written, portMAX_DELAY);
+		if (packet == NULL) {
+			free_audio_packet(packet);
+			packet = NULL;
+			continue;
+		}
+
+		int16_t timestamp =
+			(int16_t)((esp_timer_get_time() - packet->timestamp) / 1000);
+		update_delays(timestamp);
+		esp_err_t err = i2s_channel_write(tx_chan, packet->audio_sample,
+										  packet->sample_size *
+											  sizeof(packet->audio_sample[0]),
+										  &bytes_written, portMAX_DELAY);
+
+		if (bytes_written == 0 || err != ESP_OK) {
+			ESP_LOGW(TAG, "Failed to wrtie to AMP/Speaker");
+		}
+
+		free_audio_packet(packet);
+		packet = NULL;
 	}
 }
 

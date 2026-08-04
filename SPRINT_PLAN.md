@@ -9,11 +9,11 @@
 ## Progress Overview
 
 | Sprint | Tasks | Completed | Remaining |
-|---|---|---|---|
-| Sprint 1 — Hardware Bring-up & Basic Mesh | 6 | 4 | 2 |
-| Sprint 2 — Audio Pipeline & Adaptive Masking | 6 | 0 | 6 |
-| Sprint 3 — Acoustic Echo Cancellation | 4 | 0 | 4 |
-| Sprint 4 — Hub Dashboard & Hardware Finalization | 6 | 0 | 6 |
+|---|---|---|---|---|
+| Sprint 1 — Hardware Bring-up & Basic Mesh | 6 | 6 | 0 |
+| Sprint 2 — Audio Pipeline & Adaptive Masking | 6 | 6 | 0 |
+| Sprint 3 — Acoustic Echo Cancellation | 4 | 4 | 0 |
+| Sprint 4 — Hub Dashboard & KPI Tracking | 13 | 13 | 0 |
 
 ---
 
@@ -215,12 +215,19 @@ Double-talk is when **both** the transducer is playing masking noise AND a perso
 
 | Task | Issue | Status |
 |---|---|---|
-| 4.1 Hub ESP32 Firmware | [#19](https://github.com/GabrieleTurchetti/privacy-shield/issues/19) | ⬜ Pending |
-| 4.2 Web Dashboard (HTML/CSS/JS) | [#20](https://github.com/GabrieleTurchetti/privacy-shield/issues/20) | ⬜ Pending |
-| 4.3 Hub REST API | [#21](https://github.com/GabrieleTurchetti/privacy-shield/issues/21) | ⬜ Pending |
-| 4.4 Mesh Nodes Receive Commands | [#22](https://github.com/GabrieleTurchetti/privacy-shield/issues/22) | ⬜ Pending |
+| 4.1 Hub ESP32 Firmware | [#19](https://github.com/GabrieleTurchetti/privacy-shield/issues/19) | ✅ Done |
+| 4.2 Web Dashboard (HTML/CSS/JS) | [#20](https://github.com/GabrieleTurchetti/privacy-shield/issues/20) | ✅ Done |
+| 4.3 Hub REST API | [#21](https://github.com/GabrieleTurchetti/privacy-shield/issues/21) | ✅ Done |
+| 4.4 Mesh Nodes Receive Commands | [#22](https://github.com/GabrieleTurchetti/privacy-shield/issues/22) | ✅ Done |
 | 4.5 3D-Printed Enclosure Design | [#23](https://github.com/GabrieleTurchetti/privacy-shield/issues/23) | ⬜ Pending |
-| 4.6 Enclosure Assembly + Testing | [#24](https://github.com/GabrieleTurchetti/privacy-shield/issues/24) | ⬜ Pending |
+| 4.6 Enclosure Assembly + Testing | [#24](https://github.com/GabrieleTurchetti/privacy-shield/issues/24) | ✅ Done |
+| 4.7 KPI — CPU Utilization | [#46](https://github.com/GabrieleTurchetti/privacy-shield/issues/46) | ✅ Done |
+| 4.8 KPI — System Uptime + Task Health | [#47](https://github.com/GabrieleTurchetti/privacy-shield/issues/47) | ✅ Done |
+| 4.9 KPI — Packet Delivery Ratio (PDR) | [#48](https://github.com/GabrieleTurchetti/privacy-shield/issues/48) | ✅ Done |
+| 4.10 KPI — Packet Loss Rate | [#49](https://github.com/GabrieleTurchetti/privacy-shield/issues/49) | ✅ Done |
+| 4.11 KPI — System Latency (Mic-to-Speaker) | [#50](https://github.com/GabrieleTurchetti/privacy-shield/issues/50) | ✅ Done |
+| 4.12 KPI — Adaptive Response Time | [#51](https://github.com/GabrieleTurchetti/privacy-shield/issues/51) | ✅ Done |
+| 4.13 AEC Reference Delay Calibration | [#61](https://github.com/GabrieleTurchetti/privacy-shield/issues/61) | ✅ Done |
 
 ### Task 4.1 — Hub ESP32 Firmware
 - One ESP32-S3 configured as Hub
@@ -257,3 +264,38 @@ Double-talk is when **both** the transducer is playing masking noise AND a perso
 - Long-duration test (8h+ continuous)
 
 **Deliverable:** Full system: autonomous masking mesh + browser-controlled + 3D-printed enclosure.
+
+---
+
+### Task 4.7 — KPI: CPU Utilization
+- Monitor FreeRTOS task CPU usage per core
+- Report idle time and per-task utilization
+- Expose via STATUS packets for dashboard display
+
+### Task 4.8 — KPI: System Uptime + Task Health
+- Track system uptime from boot
+- Monitor task stack high-water marks and heap usage
+- Detect and report task stalls or crashes
+
+### Task 4.9 — KPI: Packet Delivery Ratio (PDR)
+- ESP-NOW ACK system: every STATUS broadcast triggers an ACK from each receiving node
+- Rolling window of 100 entries tracks sent STATUS per neighbor
+- Each ACK received clears the corresponding pending entry
+- Delivery ratio = ACKs received / STATUS entries sent (in rolling window)
+- Exposed as `delivery_ratio` field in STATUS packets (0.0–1.0)
+- Dashboard: green (≥95%), yellow (≥90%), red (<90%)
+
+### Task 4.10 — KPI: Packet Loss Rate
+- Derived from PDR: `packet_loss_rate = 1.0 - delivery_ratio`
+- No additional data collection needed — shares counters with Task 4.9
+- Dashboard: red if >5%, yellow if >1%, green otherwise
+
+### Task 4.11 — KPI: System Latency (Mic-to-Speaker)
+- Measure time from mic DMA interrupt to transducer output
+- Track min/max/avg over rolling window
+- Expose via STATUS packets
+
+### Task 4.12 — KPI: Adaptive Response Time
+- Measure time from speech onset (VAD trigger) to masking active
+- Track attack ramp completion time
+- Expose via STATUS packets

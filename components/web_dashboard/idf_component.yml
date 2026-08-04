@@ -1,0 +1,3 @@
+dependencies:
+  # mDNS so the dashboard is reachable at http://privacyshield.local
+  espressif/mdns: "^1.2.0"

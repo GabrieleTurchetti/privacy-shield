@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 720" role="img">
+<title>Command Flow — Hub → Node (control path)</title>
+<defs>
+<filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="#0f172a" flood-opacity="0.09"/></filter>
+<marker id="mb" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#2563EB"/></marker>
+<marker id="mgy" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#94A3B8"/></marker>
+<marker id="mt" markerWidth="11" markerHeight="11" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#0D9488"/></marker>
+</defs>
+<style>
+text{font-family:Inter,'Segoe UI',Helvetica,Arial,sans-serif}
+.tt{font-size:27px;font-weight:800;fill:#0F172A}.sub{font-size:14px;fill:#64748B}
+.st{font-size:14.5px;font-weight:800;fill:#0F172A}.p{font-size:11.5px;fill:#475569}
+.badge{font-size:13px;font-weight:800;fill:#FFFFFF}
+.mono{font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;font-size:11px;fill:#0F172A}
+.monos{font-family:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;font-size:10.5px;fill:#64748B}
+.lab{font-size:11px;font-weight:700}.tag{font-size:10px;font-weight:700;fill:#94A3B8}
+.ico{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+</style>
+<rect x="0" y="0" width="1440" height="720" fill="#EEF2F7"/>
+<rect x="24" y="24" width="1392" height="672" rx="20" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+<text x="56" y="66" class="tt">Command Flow — Hub → Node (control path)</text>
+<text x="56" y="92" class="sub">Dashboard button → REST → resolve target → ESP-NOW unicast → node dispatch · fire-and-forget (no ACK)</text>
+
+<!-- arrows between stages -->
+<path d="M292,250 L316,250" fill="none" stroke="#2563EB" stroke-width="2.4" marker-end="url(#mb)"/>
+<text x="304" y="140" text-anchor="middle" class="tag" fill="#2563EB">HTTP</text>
+<path d="M569,250 L593,250" fill="none" stroke="#94A3B8" stroke-width="2.2" marker-end="url(#mgy)"/>
+<path d="M846,250 L870,250" fill="none" stroke="#94A3B8" stroke-width="2.2" marker-end="url(#mgy)"/>
+<path d="M1123,250 L1147,250" fill="none" stroke="#0D9488" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#mt)"/>
+<text x="1135" y="140" text-anchor="middle" class="tag" fill="#0D9488">ESP-NOW · unicast</text>
+
+<!-- STAGE 1 Dashboard (blue) -->
+<g filter="url(#sh)"><rect x="42" y="150" width="250" height="210" rx="14" fill="#EFF6FF" stroke="#93C5FD" stroke-width="2"/></g>
+<circle cx="68" cy="178" r="13" fill="#2563EB"/><text x="68" y="183" text-anchor="middle" class="badge">1</text>
+<text x="90" y="183" class="st" fill="#1D4ED8">Dashboard</text>
+<text x="62" y="214" class="p">User taps “Mute” on node 5.</text>
+<text x="62" y="236" class="p">JS fires an HTTP request:</text>
+<rect x="62" y="250" width="210" height="46" rx="6" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1"/>
+<text x="74" y="270" class="mono" fill="#1D4ED8">POST /api/node/</text>
+<text x="74" y="286" class="mono" fill="#1D4ED8">     mute?id=5</text>
+<text x="62" y="326" class="monos">runs in Chrome on the</text>
+<text x="62" y="342" class="monos">hub's Wi-Fi AP</text>
+
+<!-- STAGE 2 web_server (violet) -->
+<g filter="url(#sh)"><rect x="319" y="150" width="250" height="210" rx="14" fill="#F5F3FF" stroke="#A78BFA" stroke-width="2"/></g>
+<circle cx="345" cy="178" r="13" fill="#7C3AED"/><text x="345" y="183" text-anchor="middle" class="badge">2</text>
+<text x="367" y="183" class="st" fill="#5B21B6">web_server.c</text>
+<text x="339" y="214" class="p">esp_http_server matches the</text>
+<text x="339" y="230" class="p">wildcard route and dispatches</text>
+<text x="339" y="246" class="p">to the handler.</text>
+<rect x="339" y="258" width="210" height="46" rx="6" fill="#EDE9FE" stroke="#C4B5FD" stroke-width="1"/>
+<text x="351" y="278" class="mono" fill="#5B21B6">"/api/node/mute*"</text>
+<text x="351" y="294" class="mono" fill="#5B21B6">  → node_mute handler</text>
+<text x="339" y="334" class="monos">HTTP server task</text>
+
+<!-- STAGE 3 web_api (violet) -->
+<g filter="url(#sh)"><rect x="596" y="150" width="250" height="210" rx="14" fill="#F5F3FF" stroke="#A78BFA" stroke-width="2"/></g>
+<circle cx="622" cy="178" r="13" fill="#7C3AED"/><text x="622" y="183" text-anchor="middle" class="badge">3</text>
+<text x="644" y="183" class="st" fill="#5B21B6">web_api.c</text>
+<text x="616" y="214" class="p">Parse the id, look up its MAC,</text>
+<text x="616" y="230" class="p">build the command packet.</text>
+<rect x="616" y="242" width="210" height="64" rx="6" fill="#EDE9FE" stroke="#C4B5FD" stroke-width="1"/>
+<text x="628" y="262" class="mono" fill="#5B21B6">node_mac_by_id(5)</text>
+<text x="628" y="278" class="mono" fill="#5B21B6">  → aa:bb:..:05</text>
+<text x="628" y="296" class="mono" fill="#5B21B6">pkt{src_id=0, MUTE}</text>
+<text x="616" y="336" class="monos">send_command_to_node()</text>
+
+<!-- STAGE 4 mesh_core (teal-ish, keep violet family but teal accents) -->
+<g filter="url(#sh)"><rect x="873" y="150" width="250" height="210" rx="14" fill="#ECFEFF" stroke="#5EEAD4" stroke-width="2"/></g>
+<circle cx="899" cy="178" r="13" fill="#0D9488"/><text x="899" y="183" text-anchor="middle" class="badge">4</text>
+<text x="921" y="183" class="st" fill="#0F766E">mesh_core</text>
+<text x="893" y="214" class="p">Ensure the node is an ESP-NOW</text>
+<text x="893" y="230" class="p">peer, then unicast the 8 bytes.</text>
+<rect x="893" y="242" width="210" height="64" rx="6" fill="#CCFBF1" stroke="#5EEAD4" stroke-width="1"/>
+<text x="905" y="262" class="mono" fill="#0F766E">add_peer(ifidx=AP)</text>
+<text x="905" y="278" class="mono" fill="#0F766E">esp_now_send(mac,</text>
+<text x="905" y="294" class="mono" fill="#0F766E">             pkt, 8)</text>
+<text x="893" y="336" class="monos" fill="#B45309">fire-and-forget · no ACK</text>
+
+<!-- STAGE 5 node (green) -->
+<g filter="url(#sh)"><rect x="1150" y="150" width="248" height="210" rx="14" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="2"/></g>
+<circle cx="1176" cy="178" r="13" fill="#059669"/><text x="1176" y="183" text-anchor="middle" class="badge">5</text>
+<text x="1198" y="183" class="st" fill="#065F46">Masking Node</text>
+<text x="1170" y="214" class="p">recv callback dispatches on</text>
+<text x="1170" y="230" class="p">the command byte.</text>
+<rect x="1170" y="242" width="210" height="64" rx="6" fill="#DCFCE7" stroke="#6EE7B7" stroke-width="1"/>
+<text x="1182" y="262" class="mono" fill="#065F46">on_mesh_packet()</text>
+<text x="1182" y="278" class="mono" fill="#065F46"> case COMMAND: switch</text>
+<text x="1182" y="294" class="mono" fill="#065F46"> → set_masking(0)</text>
+<text x="1170" y="336" class="monos">output muted</text>
+
+<!-- ===== reference: command enum ===== -->
+<g filter="url(#sh)"><rect x="42" y="400" width="760" height="196" rx="14" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.6"/></g>
+<text x="66" y="430" class="st">Command set — mesh_command_t (payload = command byte + value byte)</text>
+<text x="66" y="456" class="tag">COMMAND</text><text x="320" y="456" class="tag">VALUE</text><text x="470" y="456" class="tag">CODE</text><text x="590" y="456" class="tag">NODE ACTION</text>
+<line x1="66" y1="466" x2="778" y2="466" stroke="#E2E8F0" stroke-width="1.2"/>
+<text x="66" y="490" class="mono" font-weight="700">MUTE</text><text x="320" y="490" class="mono" fill="#64748B">—</text><text x="470" y="490" class="mono" fill="#B45309">0x01</text><text x="590" y="490" class="monos">set_masking(0)</text>
+<text x="66" y="512" class="mono" font-weight="700">UNMUTE</text><text x="320" y="512" class="mono" fill="#64748B">—</text><text x="470" y="512" class="mono" fill="#B45309">0x02</text><text x="590" y="512" class="monos">set_masking(1)</text>
+<text x="66" y="534" class="mono" font-weight="700">SET_VOLUME</text><text x="320" y="534" class="mono" fill="#64748B">0–100</text><text x="470" y="534" class="mono" fill="#B45309">0x03</text><text x="590" y="534" class="monos">set_volume(value)</text>
+<text x="66" y="556" class="mono" font-weight="700">REBOOT</text><text x="320" y="556" class="mono" fill="#64748B">—</text><text x="470" y="556" class="mono" fill="#B45309">0x04</text><text x="590" y="556" class="monos">esp_restart()</text>
+<text x="66" y="578" class="mono" font-weight="700">UNLOCK</text><text x="320" y="578" class="mono" fill="#64748B">—</text><text x="470" y="578" class="mono" fill="#B45309">0x05</text><text x="590" y="578" class="monos">unlock()</text>
+
+<!-- ===== reference: packet + note ===== -->
+<g filter="url(#sh)"><rect x="826" y="400" width="572" height="196" rx="14" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.6"/></g>
+<text x="850" y="430" class="st" fill="#92400E">COMMAND packet — 8 bytes</text>
+<!-- byte strip -->
+<rect x="850" y="446" width="276" height="40" rx="6" fill="#FEF3C7" stroke="#FCD34D"/><text x="988" y="471" text-anchor="middle" class="mono" fill="#92400E">header (6 B)</text>
+<rect x="1130" y="446" width="120" height="40" rx="6" fill="#FDE68A" stroke="#F59E0B"/><text x="1190" y="471" text-anchor="middle" class="mono" fill="#92400E">command (1)</text>
+<rect x="1254" y="446" width="120" height="40" rx="6" fill="#FDE68A" stroke="#F59E0B"/><text x="1314" y="471" text-anchor="middle" class="mono" fill="#92400E">value (1)</text>
+<text x="850" y="512" class="p">header = type · src_id (0 = hub) · timestamp_ms</text>
+<text x="850" y="540" class="p" font-weight="700">Fire-and-forget: commands are not ACKed (unlike STATUS).</text>
+<text x="850" y="560" class="p">The dashboard confirms the effect on its next /api/nodes poll,</text>
+<text x="850" y="578" class="p">when the node's new masking/volume state comes back.</text>
+</svg>

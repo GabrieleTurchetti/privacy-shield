@@ -20,6 +20,25 @@ menu "Privacy Shield Configuration"
     endchoice
 
     # =================================================================
+    #  Hub WiFi (station mode)
+    # =================================================================
+    #  The Hub joins your existing home WiFi as a station so the
+    #  dashboard is reachable on your LAN (http://privacyshield.local)
+    #  without your phone losing internet. Only used in Hub role.
+    config PRIVACY_SHIELD_WIFI_SSID
+        string "Home WiFi SSID (Hub only)"
+        default "iPhone di Donaldo"
+        help
+            SSID of the network the Hub connects to. Ignored by Nodes.
+
+    config PRIVACY_SHIELD_WIFI_PASSWORD
+        string "Home WiFi password (Hub only)"
+        default "privacyshield123"
+        help
+            Password for the above network. Leave empty for an open network
+            (and change the auth threshold in wifi_sta_connect()).
+
+    # =================================================================
     #  Build Mode
     # =================================================================
     choice PRIVACY_SHIELD_BUILD_MODE
@@ -79,7 +98,7 @@ menu "Privacy Shield Configuration"
                 Shows calibration details, buffer reads, sample counts.
 
                 When OFF: LOG_TAG_AUDIO_AFE at WARN.
-        config CONFIG_PRIVACY_SHIELD_LOG_WEB
+        config PRIVACY_SHIELD_LOG_WEB
             bool "Web log level: Debug"
             default y
             help
@@ -87,6 +106,14 @@ menu "Privacy Shield Configuration"
                 Shows calibration details, buffer reads, sample counts.
 
                 When OFF: LOG_TAG_WEB at WARN.
+        config PRIVACY_SHIELD_LOG_BATTERY
+            bool "Battery log level: Debug"
+            default y
+            help
+                When ON: LOG_TAG_BATTERY logs at DEBUG.
+                Shows calibration details, buffer reads, sample counts.
+
+                When OFF: LOG_TAG_BATTERY at WARN.
 
     endmenu
 
